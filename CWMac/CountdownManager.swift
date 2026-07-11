@@ -124,7 +124,7 @@ final class CountdownManager {
         do {
             try process.run()
         } catch {
-            lastError = "Nie udało się wykonać akcji: \(error.localizedDescription)"
+            lastError = Localization.shared.format("error.action", error.localizedDescription)
         }
     }
 
@@ -137,9 +137,9 @@ final class CountdownManager {
 
     private func sendWarning() {
         let content = UNMutableNotificationContent()
-        content.title = "Uwaga!"
+        content.title = Localization.shared.string("notif.warningTitle")
         let minutes = max(1, secondsLeft / 60)
-        content.body = "\(selectedAction.warningPhrase) za \(minutes) min."
+        content.body = Localization.shared.format("notif.warningBody", selectedAction.warningPhrase, minutes)
         content.sound = .default
 
         let request = UNNotificationRequest(

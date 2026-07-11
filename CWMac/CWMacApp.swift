@@ -35,12 +35,14 @@ struct CWMacApp: App {
         Window("CWMac", id: "main") {
             ContentView()
                 .environment(manager)
+                .environment(Localization.shared)
                 .tint(.cwPurple)
         }
         .windowResizability(.contentSize)
 
         Settings {
             SettingsView()
+                .environment(Localization.shared)
         }
     }
 }

@@ -17,8 +17,8 @@ enum PowerAction: String, CaseIterable, Identifiable {
     /// Etykieta wyświetlana użytkownikowi.
     var title: String {
         switch self {
-        case .sleep: return "Uśpij"
-        case .shutdown: return "Wyłącz"
+        case .sleep: return Localization.shared.string("action.sleep")
+        case .shutdown: return Localization.shared.string("action.shutdown")
         }
     }
 
@@ -33,8 +33,8 @@ enum PowerAction: String, CaseIterable, Identifiable {
     /// Opis użyty w powiadomieniu ostrzegawczym.
     var warningPhrase: String {
         switch self {
-        case .sleep: return "Mac zostanie uśpiony"
-        case .shutdown: return "Mac zostanie wyłączony"
+        case .sleep: return Localization.shared.string("warning.sleep")
+        case .shutdown: return Localization.shared.string("warning.shutdown")
         }
     }
 }
