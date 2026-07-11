@@ -1,0 +1,3 @@
+# Allow opening a blank issue in addition to the form.
+# Pozwól otworzyć puste zgłoszenie obok formularza.
+blank_issues_enabled: true

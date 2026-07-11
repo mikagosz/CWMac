@@ -1,0 +1,70 @@
+name: 🐞 Bug report / Zgłoszenie błędu
+description: Report a problem with an app. / Zgłoś problem z aplikacją.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug!
+        Dziękujemy za poświęcenie czasu na zgłoszenie błędu!
+
+  - type: input
+    id: app
+    attributes:
+      label: App / Program
+      description: Which app does this concern? / Której aplikacji dotyczy?
+      placeholder: e.g. CWMac
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened? / Co się stało?
+      description: A clear description of the problem. / Jasny opis problemu.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce / Kroki do odtworzenia
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / Oczekiwane zachowanie
+      description: What did you expect to happen? / Czego się spodziewałeś/aś?
+    validations:
+      required: false
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App version / Wersja aplikacji
+      placeholder: e.g. 1.0
+    validations:
+      required: false
+
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version / Wersja macOS
+      placeholder: e.g. macOS 26.5
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context / screenshots — Dodatkowe informacje / zrzuty ekranu
+      description: Anything else that might help. / Cokolwiek, co może pomóc.
+    validations:
+      required: false
