@@ -186,7 +186,11 @@ final class StatusItemController: NSObject {
     @objc private func openSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        WindowActions.shared.openSettings?()
+        // Odłożenie o jeden cykl pętli — okno Ustawień nie otwiera się
+        // niezawodnie w trakcie zamykania menu paska.
+        DispatchQueue.main.async {
+            WindowActions.shared.openSettings?()
+        }
     }
 
     @objc private func quit() {

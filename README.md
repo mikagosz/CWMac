@@ -4,6 +4,21 @@ A tiny macOS menu bar utility that puts your Mac to **sleep** or **shuts it down
 
 *Mały program dla macOS, który po ustawionym czasie **usypia** albo **wyłącza** Maca. Interfejs po angielsku i po polsku.*
 
+<p align="center">
+  <img src="docs/icon.png" width="120" alt="CWMac icon"><br>
+  <img src="docs/screenshot.png" width="360" alt="CWMac window">
+</p>
+
+## Download / Pobierz
+
+**[⬇️ Download the latest version](https://github.com/mikagosz/CWMac/releases/latest)** — no coding needed. *Pobierz najnowszą wersję — bez kodowania.*
+
+1. Download `CWMac.zip` from the latest release and unzip it. / Pobierz `CWMac.zip` i rozpakuj.
+2. Move **CWMac.app** to your **Applications** folder. / Przenieś **CWMac.app** do folderu **Programy**.
+3. The app isn't notarized yet, so on first launch **right-click** (Control-click) the app → **Open** → **Open**.
+
+> Aplikacja nie jest jeszcze notaryzowana, więc przy pierwszym uruchomieniu kliknij ją **prawym przyciskiem → Otwórz → Otwórz** (lub: Ustawienia systemowe → Prywatność i bezpieczeństwo → *Otwórz mimo to*).
+
 ---
 
 ## Features / Funkcje
