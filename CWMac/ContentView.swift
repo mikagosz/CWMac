@@ -37,6 +37,14 @@ struct ContentView: View {
         }
         .padding(28)
         .frame(width: 360)
+        .overlay(alignment: .topLeading) {
+            SettingsLink {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help(loc.string("menu.settings"))
+            .padding(10)
+        }
         .overlay(alignment: .topTrailing) {
             Button {
                 NSApplication.shared.terminate(nil)
