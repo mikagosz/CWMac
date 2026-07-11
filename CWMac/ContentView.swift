@@ -10,7 +10,9 @@ import AppKit
 
 struct ContentView: View {
     @Environment(CountdownManager.self) private var manager
+    @Environment(Localization.self) private var loc
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
     @State private var minutes: Int = 60
     @State private var action: PowerAction = .sleep
 
@@ -42,14 +44,15 @@ struct ContentView: View {
                 Image(systemName: "power")
             }
             .buttonStyle(.borderless)
-            .help("Zamknij aplikację")
+            .help(loc.string("quit.help"))
             .padding(10)
         }
         .onAppear {
             // Okno jest widoczne — pokaż aplikację w Docku.
             NSApp.setActivationPolicy(.regular)
-            // Zapamiętaj sposób ponownego otwarcia okna (używany przez pasek menu).
+            // Zapamiętaj sposoby otwierania okna i ustawień (używane przez pasek menu).
             WindowActions.shared.openMain = { openWindow(id: "main") }
+            WindowActions.shared.openSettings = { openSettings() }
         }
         .onDisappear {
             // Zamknięcie okna podczas odliczania chowa aplikację do paska menu
@@ -78,7 +81,7 @@ struct ContentView: View {
                     .padding(.vertical, 3)
                     .background(.quaternary, in: Capsule())
             }
-            Text("Zaplanuj uśpienie lub wyłączenie Maca")
+            Text(loc.string("app.subtitle"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -103,10 +106,10 @@ struct ContentView: View {
 
             VStack(spacing: 12) {
                 HStack {
-                    Text("Za ile minut?")
+                    Text(loc.string("setup.minutesQuestion"))
                         .font(.subheadline)
                     Spacer()
-                    TextField("Minuty", value: $minutes, format: .number)
+                    TextField(loc.string("setup.minutesField"), value: $minutes, format: .number)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
                         .multilineTextAlignment(.trailing)
@@ -119,7 +122,7 @@ struct ContentView: View {
                         Button {
                             minutes = value
                         } label: {
-                            Text("\(value) min")
+                            Text(loc.format("preset.minFormat", value))
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
@@ -131,7 +134,7 @@ struct ContentView: View {
             Button {
                 manager.start(minutes: minutes, action: action)
             } label: {
-                Label("Uruchom licznik", systemImage: "play.fill")
+                Label(loc.string("setup.start"), systemImage: "play.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -168,7 +171,7 @@ struct ContentView: View {
             Button(role: .destructive) {
                 manager.cancel()
             } label: {
-                Label("Anuluj", systemImage: "stop.fill")
+                Label(loc.string("run.cancel"), systemImage: "stop.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -180,5 +183,6 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environment(CountdownManager())
+        .environment(Localization.shared)
         .tint(.cwPurple)
 }

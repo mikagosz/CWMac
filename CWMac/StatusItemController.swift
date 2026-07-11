@@ -13,6 +13,7 @@ import AppKit
 final class WindowActions {
     static let shared = WindowActions()
     var openMain: (() -> Void)?
+    var openSettings: (() -> Void)?
     private init() {}
 }
 
@@ -137,23 +138,25 @@ final class StatusItemController: NSObject {
     private func showMenu() {
         let menu = NSMenu()
 
+        let loc = Localization.shared
+
         if manager.isRunning {
             let status = NSMenuItem(
-                title: "\(manager.selectedAction.title) za \(manager.minutesRemaining) min",
+                title: loc.format("menu.statusFormat", manager.selectedAction.title, manager.minutesRemaining),
                 action: nil,
                 keyEquivalent: ""
             )
             status.isEnabled = false
             menu.addItem(status)
 
-            addItem(to: menu, title: "Anuluj licznik", action: #selector(cancelCountdown))
+            addItem(to: menu, title: loc.string("menu.cancel"), action: #selector(cancelCountdown))
             menu.addItem(.separator())
         }
 
-        addItem(to: menu, title: "Otwórz CWMac", action: #selector(openWindowAction))
-        addItem(to: menu, title: "Ustawienia…", action: #selector(openSettings))
+        addItem(to: menu, title: loc.string("menu.open"), action: #selector(openWindowAction))
+        addItem(to: menu, title: loc.string("menu.settings"), action: #selector(openSettings))
         menu.addItem(.separator())
-        addItem(to: menu, title: "Zakończ CWMac", action: #selector(quit))
+        addItem(to: menu, title: loc.string("menu.quit"), action: #selector(quit))
 
         if let button = statusItem?.button {
             menu.popUp(
@@ -183,7 +186,7 @@ final class StatusItemController: NSObject {
     @objc private func openSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        WindowActions.shared.openSettings?()
     }
 
     @objc private func quit() {
