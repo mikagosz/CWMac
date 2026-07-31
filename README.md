@@ -34,7 +34,7 @@ A tiny macOS menu bar utility that puts your Mac to **sleep** or **shuts it down
 
 ## Requirements / Wymagania
 
-- macOS 26.5 or later
+- macOS 26 or later
 - Xcode 26 or later (to build from source)
 
 ## Build & Run / Budowanie i uruchomienie
@@ -46,6 +46,21 @@ A tiny macOS menu bar utility that puts your Mac to **sleep** or **shuts it down
 > **Note / Uwaga:** The app runs **without the App Sandbox** on purpose — it needs to
 > run `pmset sleepnow` (sleep) and send a shutdown command to *System Events*. The first
 > time you use **Shut Down**, macOS asks for permission to control *System Events*; allow it.
+
+> **Signing / Podpis:** the project pins a local code-signing identity that won't be in
+> your keychain. Set **Signing & Capabilities → Signing Certificate** to *Sign to Run
+> Locally*, or point it at your own certificate.
+
+## Tests / Testy
+
+```bash
+xcodebuild -project CWMac.xcodeproj -scheme CWMac -destination 'platform=macOS' test
+```
+
+14 tests over `CountdownManager` — the deadline arithmetic, cancellation, and the
+guarantee that the power action fires exactly once and only when it should. The
+tests replace the action runner, so running them can never sleep or shut down the
+machine they run on.
 
 ## How to use / Jak używać
 

@@ -31,6 +31,20 @@ final class CountdownManager {
     /// Ostatni komunikat błędu (np. gdy nie udało się uruchomić polecenia systemowego).
     var lastError: String?
 
+    /// Moment, w którym licznik ma dobiec zera. `nil`, gdy nic nie odlicza.
+    ///
+    /// To on jest źródłem prawdy, a nie `secondsLeft`: odliczanie liczone przez
+    /// odejmowanie sekundy na obrót pętli spóźnia się o narastającą sumę
+    /// narzutów, a przy uśpionym Macu stoi w miejscu. Przy akcji „uśpij" to
+    /// szczególnie dotkliwe — licznik zatrzymywałby się dokładnie wtedy, gdy ma
+    /// pracować.
+    private(set) var deadline: Date?
+
+    /// Wykonuje wybraną akcję zasilania. Podmieniane w testach, żeby zestaw
+    /// testów nie mógł uśpić ani wyłączyć maszyny, na której działa.
+    @ObservationIgnored
+    var actionRunner: (PowerAction) throws -> Void = CountdownManager.runSystemAction
+
     private var task: Task<Void, Never>?
     private var warningSent = false
 
@@ -64,12 +78,13 @@ final class CountdownManager {
     }
 
     /// Rozpoczyna odliczanie dla podanej liczby minut i wybranej akcji.
-    func start(minutes: Int, action: PowerAction) {
+    func start(minutes: Int, action: PowerAction, now: Date = Date()) {
         guard minutes > 0 else { return }
         cancel()
         selectedAction = action
         totalSeconds = minutes * 60
         secondsLeft = totalSeconds
+        deadline = now.addingTimeInterval(Double(totalSeconds))
         warningSent = false
         lastError = nil
         isRunning = true
@@ -85,29 +100,55 @@ final class CountdownManager {
         isRunning = false
         secondsLeft = 0
         totalSeconds = 0
+        deadline = nil
         warningSent = false
     }
 
-    private func runLoop() async {
-        while secondsLeft > 0 {
-            try? await Task.sleep(for: .seconds(1))
-            if Task.isCancelled { return }
+    /// Przelicza stan na podaną chwilę i zwraca `true`, gdy czas właśnie minął.
+    ///
+    /// Wydzielone z pętli, żeby dało się to sprawdzić w teście bez czekania —
+    /// wystarczy podać `now` z przyszłości.
+    @discardableResult
+    func tick(now: Date = Date()) -> Bool {
+        guard let deadline else { return false }
+        secondsLeft = max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
 
-            secondsLeft -= 1
-
-            if !warningSent, warningThreshold > 0, secondsLeft == warningThreshold {
-                warningSent = true
-                sendWarning()
-            }
+        // Porównanie nierównością, nie równością: przy liczeniu z zegara
+        // ściennego sekundy potrafią przeskoczyć (uśpienie, obciążenie), a
+        // ostrzeżenie ma się pojawić także wtedy, gdy dokładna wartość progu
+        // została pominięta.
+        if !warningSent, warningThreshold > 0, secondsLeft <= warningThreshold, secondsLeft > 0 {
+            warningSent = true
+            sendWarning()
         }
 
+        guard secondsLeft == 0 else { return false }
         isRunning = false
+        self.deadline = nil
         performAction(selectedAction)
+        return true
+    }
+
+    private func runLoop() async {
+        while deadline != nil {
+            try? await Task.sleep(for: .seconds(1))
+            if Task.isCancelled { return }
+            if tick() { return }
+        }
     }
 
     // MARK: - Wykonanie akcji
 
     private func performAction(_ action: PowerAction) {
+        do {
+            try actionRunner(action)
+        } catch {
+            lastError = Localization.shared.format("error.action", error.localizedDescription)
+        }
+    }
+
+    /// Właściwe polecenie systemowe usypiające lub wyłączające Maca.
+    nonisolated static func runSystemAction(_ action: PowerAction) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
 
@@ -121,11 +162,7 @@ final class CountdownManager {
             ]
         }
 
-        do {
-            try process.run()
-        } catch {
-            lastError = Localization.shared.format("error.action", error.localizedDescription)
-        }
+        try process.run()
     }
 
     // MARK: - Powiadomienia
