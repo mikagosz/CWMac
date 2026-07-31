@@ -1,11 +1,21 @@
-# CWMac
+<p align="center">
+  <img src="docs/icon.png" width="160" alt="CWMac app icon">
+</p>
 
-A tiny macOS menu bar utility that puts your Mac to **sleep** or **shuts it down** after a timer you set. Bilingual (English / Polski).
+## CWMac
 
-*Mały program dla macOS, który po ustawionym czasie **usypia** albo **wyłącza** Maca. Interfejs po angielsku i po polsku.*
+**Sleep or shut down your Mac, on your schedule.**
+A tiny macOS menu bar utility that puts your Mac to **sleep** or **shuts it down**
+after a timer you set. Bilingual (English / Polski).
+
+*Mały program dla macOS, który po ustawionym czasie **usypia** albo **wyłącza** Maca.
+Interfejs po angielsku i po polsku.*
+
+[![Xcode 26+](https://img.shields.io/badge/Xcode-26%2B-147EFB?logo=xcode&logoColor=white)](https://developer.apple.com/xcode/)
+[![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/icon.png" width="120" alt="CWMac icon"><br>
   <img src="docs/screenshot.png" width="360" alt="CWMac window">
 </p>
 
