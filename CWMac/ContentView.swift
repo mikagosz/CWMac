@@ -18,6 +18,10 @@ struct ContentView: View {
 
     private let presets = [15, 30, 60, 120]
 
+    /// Dozwolony zakres minut — jedno miejsce dla `Stepper`, pola tekstowego
+    /// i przycisku startu, żeby nie mogły się rozjechać (P2-04).
+    static let zakresMinut = 1...1440
+
     var body: some View {
         VStack(spacing: 24) {
             header
@@ -34,6 +38,15 @@ struct ContentView: View {
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }
+
+            // Droga zapasowa ostrzeżenia, gdy powiadomienia systemowe są
+            // niedostępne — inaczej znikałoby bez śladu (P2-10).
+            if let warning = manager.fallbackWarning {
+                Label(warning, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .multilineTextAlignment(.center)
+            }
         }
         .padding(28)
         .frame(width: 360)
@@ -43,6 +56,9 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .help(loc.string("menu.settings"))
+            // `help` to podpowiedź, nie etykieta dostępności — VoiceOver czytał
+            // te przyciski jako nieopisane. Audyt 2026-08-01, P2-06.
+            .accessibilityLabel(loc.string("a11y.settings"))
             .padding(10)
         }
         .overlay(alignment: .topTrailing) {
@@ -53,6 +69,9 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .help(loc.string("quit.help"))
+            // Ten przycisk NATYCHMIAST zamyka aplikację — z VoiceOverem był
+            // nieopisanym, nieodwracalnym przyciskiem.
+            .accessibilityLabel(loc.string("a11y.quit"))
             .padding(10)
         }
         .onAppear {
@@ -65,7 +84,13 @@ struct ContentView: View {
         .onDisappear {
             // Zamknięcie okna podczas odliczania chowa aplikację do paska menu
             // i usuwa ją z Docka; licznik działa dalej.
-            if manager.isRunning {
+            //
+            // ⚠️ Ale tylko wtedy, gdy ikona w pasku menu naprawdę jest — inaczej
+            // aplikacja zniknęłaby zewsząd naraz, z biegnącym licznikiem do
+            // wyłączenia Maca i bez sposobu, żeby go anulować (audyt, P1-02).
+            // Gdy ikony nie ma, zostajemy w Docku: to jedyna droga powrotu.
+            let ikonaWidoczna = UserDefaults.standard.bool(forKey: DefaultsKey.showMenuBarIcon)
+            if manager.isRunning, ikonaWidoczna {
                 NSApp.setActivationPolicy(.accessory)
             }
         }
@@ -104,9 +129,12 @@ struct ContentView: View {
 
     private var setupView: some View {
         VStack(spacing: 20) {
-            Picker("Akcja", selection: $action) {
+            // Etykieta z tabeli tłumaczeń, nie zaszyta po polsku. `labelsHidden()`
+            // ukrywa ją wizualnie, ale zostaje tym, co czyta VoiceOver — więc
+            // anglojęzyczny użytkownik słyszał polskie „Akcja". Audyt, P2-05.
+            Picker(loc.string("setup.actionLabel"), selection: $action) {
                 ForEach(PowerAction.allCases) { item in
-                    Label(item.title, systemImage: item.systemImage).tag(item)
+                    Label(loc.string(item.titleKey), systemImage: item.systemImage).tag(item)
                 }
             }
             .pickerStyle(.segmented)
@@ -121,8 +149,17 @@ struct ContentView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
                         .multilineTextAlignment(.trailing)
-                    Stepper("", value: $minutes, in: 1...1440)
+                    Stepper("", value: $minutes, in: Self.zakresMinut)
                         .labelsHidden()
+                        .accessibilityLabel(loc.string("a11y.minutesStepper"))
+                }
+                // `Stepper` miał zakres 1…1440, ale pole tekstowe **żadnego** —
+                // z klawiatury przechodziło 99999 minut, czyli 69 dni.
+                // Audyt 2026-08-01, P2-04.
+                .onChange(of: minutes) { _, nowa in
+                    let ograniczona = min(max(nowa, Self.zakresMinut.lowerBound),
+                                          Self.zakresMinut.upperBound)
+                    if ograniczona != nowa { minutes = ograniczona }
                 }
 
                 HStack(spacing: 8) {
@@ -147,7 +184,7 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(minutes < 1)
+            .disabled(!Self.zakresMinut.contains(minutes))
         }
     }
 
@@ -168,7 +205,8 @@ struct ContentView: View {
                     Text(manager.formattedTime)
                         .font(.system(size: 34, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                    Label(manager.selectedAction.title, systemImage: manager.selectedAction.systemImage)
+                    Label(loc.string(manager.selectedAction.titleKey),
+                          systemImage: manager.selectedAction.systemImage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

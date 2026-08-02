@@ -14,15 +14,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusController: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UserDefaults.standard.register(defaults: [
-            "menuBarMonochrome": true,
-            "showMenuBarIcon": true
-        ])
+        UserDefaults.standard.register(defaults: DefaultsKey.defaults)
         statusController = StatusItemController(manager: .shared)
+
+        // Raz, przy starcie — nie przy każdym uruchomieniu licznika (P3-01).
+        Task { await CountdownManager.shared.requestNotificationPermission() }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         false
+    }
+
+    /// Kliknięcie w CWMac w Docku, Finderze albo Spotlighcie ma przywracać okno.
+    ///
+    /// Tania siatka bezpieczeństwa dla wszystkich ścieżek, w których użytkownik
+    /// stracił z oczu aplikację — bez tego ponowne uruchomienie działającej już
+    /// instancji potrafi nie zrobić nic (audyt 2026-08-01, P1-02).
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
+        guard !hasVisibleWindows else { return true }
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+        WindowActions.shared.openMain?()
+        return true
     }
 }
 

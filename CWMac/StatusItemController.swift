@@ -23,8 +23,13 @@ final class StatusItemController: NSObject {
 
     private let manager: CountdownManager
     private var statusItem: NSStatusItem?
-    private var timer: Timer?
     private var pendingClick: DispatchWorkItem?
+
+    /// Ikona przechowywana między odświeżeniami — przebudowywana tylko wtedy,
+    /// gdy naprawdę zmienił się styl. Wcześniej `NSImage(named:)` powstawał
+    /// co sekundę przez całe życie aplikacji (P2-01).
+    private var cachedImage: NSImage?
+    private var cachedMono: Bool?
 
     init(manager: CountdownManager) {
         self.manager = manager
@@ -40,12 +45,32 @@ final class StatusItemController: NSObject {
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
         statusItem = item
-        update()
 
-        // Odświeżanie licznika i reagowanie na zmiany ustawień.
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.update() }
-        }
+        // Żadnego własnego zegara.
+        //
+        // Wcześniej stał tu `Timer` 1 Hz tworzony raz i nigdy niezatrzymywany —
+        // co sekundę, także gdy nic nie odliczało, powstawało nowe zadanie,
+        // czytane były dwa klucze `UserDefaults` i podmieniany obraz przycisku.
+        // Dla narzędzia siedzącego w tle całymi dniami to stały koszt
+        // energetyczny bez powodu (P2-01). Do tego drugi zegar znaczył, że
+        // minuty w pasku bywały o sekundę nieaktualne względem licznika (P3-03).
+        //
+        // Teraz odświeżamy się z tego samego tiku, co licznik…
+        manager.onStateChange = { [weak self] in self?.update() }
+
+        // …a zmiany ustawień przychodzą powiadomieniem, nie odpytywaniem.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(settingsChanged),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
+
+        update()
+    }
+
+    @objc private func settingsChanged() {
+        MainActor.assumeIsolated { update() }
     }
 
     /// Aktualizuje ikonę i tytuł zgodnie ze stanem licznika oraz ustawieniami.
@@ -53,15 +78,34 @@ final class StatusItemController: NSObject {
         guard let statusItem else { return }
         let defaults = UserDefaults.standard
 
-        statusItem.isVisible = defaults.bool(forKey: "showMenuBarIcon")
+        statusItem.isVisible = defaults.bool(forKey: DefaultsKey.showMenuBarIcon)
+
+        // ⚠️ NIGDY nie dopuść, żeby zniknęły wszystkie drogi do aplikacji naraz.
+        //
+        // Trzy rzeczy działały tu przeciwko sobie: ikonę w pasku da się wyłączyć
+        // przełącznikiem, zamknięcie okna nie kończy aplikacji, a przy działającym
+        // liczniku okno przestawia politykę na `.accessory`, czyli znika też z Docka.
+        // Efekt: licznik biegnie do wyłączenia Maca, a nie ma **żadnego** elementu
+        // interfejsu, przez który dałoby się go anulować. Audyt 2026-08-01, P1-02.
+        //
+        // Strażnik stoi tutaj, a nie przy przełączniku, bo tylko tu widać stan
+        // końcowy — niezależnie od kolejności, w jakiej użytkownik do niego doszedł.
+        if !statusItem.isVisible, NSApp.activationPolicy() == .accessory {
+            NSApp.setActivationPolicy(.regular)
+        }
+
         guard statusItem.isVisible, let button = statusItem.button else { return }
 
-        let mono = defaults.bool(forKey: "menuBarMonochrome")
-        let image = NSImage(named: mono ? "MenuBarTemplate" : "MenuBarColor")
-        image?.size = NSSize(width: 18, height: 18)
-        image?.isTemplate = mono
-        button.image = image
-        button.imagePosition = .imageLeading
+        let mono = defaults.bool(forKey: DefaultsKey.menuBarMonochrome)
+        if cachedMono != mono {
+            let image = NSImage(named: mono ? "MenuBarTemplate" : "MenuBarColor")
+            image?.size = NSSize(width: 18, height: 18)
+            image?.isTemplate = mono
+            cachedImage = image
+            cachedMono = mono
+            button.image = image
+            button.imagePosition = .imageLeading
+        }
 
         if manager.isRunning {
             button.attributedTitle = runningTitle()
@@ -142,7 +186,9 @@ final class StatusItemController: NSObject {
 
         if manager.isRunning {
             let status = NSMenuItem(
-                title: loc.format("menu.statusFormat", manager.selectedAction.title, manager.minutesRemaining),
+                title: loc.format("menu.statusFormat",
+                                  loc.string(manager.selectedAction.titleKey),
+                                  manager.minutesRemaining),
                 action: nil,
                 keyEquivalent: ""
             )

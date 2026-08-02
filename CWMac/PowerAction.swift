@@ -14,11 +14,18 @@ enum PowerAction: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Etykieta wyświetlana użytkownikowi.
-    var title: String {
+    // Ten typ celowo **nie zna** `Localization.shared`.
+    //
+    // Wcześniej sięgał po globalny singleton, przez co prosty enum danych był
+    // związany z globalnym stanem i izolacją głównego aktora — trudniejszy do
+    // przetestowania i mieszający warstwę danych z prezentacją. Teraz oddaje
+    // klucze, a tekst składa ten, kto go pokazuje. Audyt 2026-08-01, P2-11.
+
+    /// Klucz etykiety wyświetlanej użytkownikowi.
+    var titleKey: String {
         switch self {
-        case .sleep: return Localization.shared.string("action.sleep")
-        case .shutdown: return Localization.shared.string("action.shutdown")
+        case .sleep: return "action.sleep"
+        case .shutdown: return "action.shutdown"
         }
     }
 
@@ -30,11 +37,11 @@ enum PowerAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Opis użyty w powiadomieniu ostrzegawczym.
-    var warningPhrase: String {
+    /// Klucz opisu użytego w powiadomieniu ostrzegawczym.
+    var warningPhraseKey: String {
         switch self {
-        case .sleep: return Localization.shared.string("warning.sleep")
-        case .shutdown: return Localization.shared.string("warning.shutdown")
+        case .sleep: return "warning.sleep"
+        case .shutdown: return "warning.shutdown"
         }
     }
 }

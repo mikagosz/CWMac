@@ -16,6 +16,13 @@ struct SettingsView: View {
         Form {
             Section(loc.string("settings.section.menuBar")) {
                 Toggle(loc.string("settings.showIcon"), isOn: $showMenuBarIcon)
+                if !showMenuBarIcon {
+                    // Ukrycie ikony jest dozwolone — aplikacja zostaje wtedy
+                    // w Docku, żeby istniała droga powrotu do licznika (P1-02).
+                    Text(loc.string("settings.iconLockedHint"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Picker(loc.string("settings.iconStyle"), selection: $menuBarMonochrome) {
                     Text(loc.string("settings.iconColor")).tag(false)
                     Text(loc.string("settings.iconMono")).tag(true)

@@ -34,12 +34,12 @@ final class Localization {
 
     var language: AppLanguage {
         didSet {
-            UserDefaults.standard.set(language.rawValue, forKey: "appLanguage")
+            UserDefaults.standard.set(language.rawValue, forKey: DefaultsKey.appLanguage)
         }
     }
 
     private init() {
-        let raw = UserDefaults.standard.string(forKey: "appLanguage") ?? ""
+        let raw = UserDefaults.standard.string(forKey: DefaultsKey.appLanguage) ?? ""
         language = AppLanguage(rawValue: raw) ?? .system
     }
 
@@ -67,6 +67,24 @@ final class Localization {
         String(format: string(key), arguments: arguments)
     }
 
+    // MARK: - Szew testowy
+
+    /// Wszystkie klucze użyte w interfejsie — suma obu tabel.
+    ///
+    /// Brakujące tłumaczenie nie jest błędem kompilacji: użytkownik po prostu
+    /// zobaczy surowy klucz. Test po tej liście to jedyne sito na taki błąd.
+    static var allKeysForTesting: [String] {
+        Array(Set(en.keys).union(pl.keys)).sorted()
+    }
+
+    func hasTranslationForTesting(_ key: String, language: AppLanguage) -> Bool {
+        switch language {
+        case .english: return Self.en[key] != nil
+        case .polish: return Self.pl[key] != nil
+        case .system: return Self.en[key] != nil && Self.pl[key] != nil
+        }
+    }
+
     // MARK: - Tabele tłumaczeń
 
     private static let en: [String: String] = [
@@ -84,6 +102,14 @@ final class Localization {
         "notif.warningTitle": "Warning!",
         "notif.warningBody": "%1$@ in %2$d min.",
         "error.action": "Could not perform action: %@",
+        "error.notPermitted": "CWMac is not allowed to control System Events, so your Mac was NOT shut down. Allow it in System Settings › Privacy & Security › Automation.",
+        "error.commandFailed": "The power command failed (code %1$d) — your Mac was NOT put to sleep or shut down. %2$@",
+        "error.noDetails": "The system gave no further details.",
+        "setup.actionLabel": "Action",
+        "settings.iconLockedHint": "Without the menu bar icon, CWMac stays in the Dock — so a running timer can always be cancelled.",
+        "a11y.settings": "Settings",
+        "a11y.quit": "Quit CWMac",
+        "a11y.minutesStepper": "Adjust minutes",
         "menu.statusFormat": "%1$@ in %2$d min",
         "menu.cancel": "Cancel timer",
         "menu.open": "Open CWMac",
@@ -116,6 +142,14 @@ final class Localization {
         "notif.warningTitle": "Uwaga!",
         "notif.warningBody": "%1$@ za %2$d min.",
         "error.action": "Nie udało się wykonać akcji: %@",
+        "error.notPermitted": "CWMac nie ma zgody na sterowanie System Events, więc Mac NIE został wyłączony. Zezwól w Ustawieniach systemowych › Prywatność i bezpieczeństwo › Automatyzacja.",
+        "error.commandFailed": "Polecenie zasilania zawiodło (kod %1$d) — Mac NIE został uśpiony ani wyłączony. %2$@",
+        "error.noDetails": "System nie podał więcej szczegółów.",
+        "setup.actionLabel": "Akcja",
+        "settings.iconLockedHint": "Bez ikony w pasku menu CWMac zostaje w Docku — żeby zawsze dało się anulować biegnący licznik.",
+        "a11y.settings": "Ustawienia",
+        "a11y.quit": "Zakończ CWMac",
+        "a11y.minutesStepper": "Zmień liczbę minut",
         "menu.statusFormat": "%1$@ za %2$d min",
         "menu.cancel": "Anuluj licznik",
         "menu.open": "Otwórz CWMac",
