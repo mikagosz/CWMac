@@ -39,7 +39,7 @@ Interfejs po angielsku i po polsku.*
 - 🧭 Menu bar item showing the remaining **minutes** and a `zzz` symbol while counting down.
 - 🎨 Menu bar icon in **color** or **monochrome** (your choice in Settings).
 - 🖱️ **Double-click** the menu bar icon to open the window; single / right click opens a menu.
-- 🫥 Closing the window keeps the app running in the menu bar (and hides it from the Dock while a timer is active).
+- 🫥 Closing the window keeps the app running in the menu bar and hides it from the Dock. Launch CWMac again (Spotlight, Finder, Dock) to bring the window back; the power button in the window quits for good.
 - 🌍 Language switch in Settings: **System / English / Polski** (changes live, no restart).
 
 ## Requirements / Wymagania

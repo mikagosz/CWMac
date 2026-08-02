@@ -17,9 +17,10 @@ struct SettingsView: View {
             Section(loc.string("settings.section.menuBar")) {
                 Toggle(loc.string("settings.showIcon"), isOn: $showMenuBarIcon)
                 if !showMenuBarIcon {
-                    // Ukrycie ikony jest dozwolone — aplikacja zostaje wtedy
-                    // w Docku, żeby istniała droga powrotu do licznika (P1-02).
-                    Text(loc.string("settings.iconLockedHint"))
+                    // Ukrycie ikony jest dozwolone i niczego nie zmienia w Docku
+                    // — dlatego tekst musi powiedzieć, jak wrócić do aplikacji,
+                    // gdy zniknie i z paska, i z Docka (P1-02b).
+                    Text(loc.string("settings.iconHiddenHint"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

@@ -80,19 +80,12 @@ final class StatusItemController: NSObject {
 
         statusItem.isVisible = defaults.bool(forKey: DefaultsKey.showMenuBarIcon)
 
-        // ⚠️ NIGDY nie dopuść, żeby zniknęły wszystkie drogi do aplikacji naraz.
-        //
-        // Trzy rzeczy działały tu przeciwko sobie: ikonę w pasku da się wyłączyć
-        // przełącznikiem, zamknięcie okna nie kończy aplikacji, a przy działającym
-        // liczniku okno przestawia politykę na `.accessory`, czyli znika też z Docka.
-        // Efekt: licznik biegnie do wyłączenia Maca, a nie ma **żadnego** elementu
-        // interfejsu, przez który dałoby się go anulować. Audyt 2026-08-01, P1-02.
-        //
-        // Strażnik stoi tutaj, a nie przy przełączniku, bo tylko tu widać stan
-        // końcowy — niezależnie od kolejności, w jakiej użytkownik do niego doszedł.
-        if !statusItem.isVisible, NSApp.activationPolicy() == .accessory {
-            NSApp.setActivationPolicy(.regular)
-        }
+        // Stał tu kiedyś strażnik wciągający aplikację z powrotem do Docka, gdy
+        // ikona w pasku znikała. Zdjęty razem z wyjątkiem w `ContentView`
+        // (audyt 2026-08-01, P1-02b): polityka aktywacji należy do okna i ma
+        // jedną regułę bez wyjątków. Wyjściem awaryjnym przy ukrytej ikonie jest
+        // `applicationShouldHandleReopen` — ponowne uruchomienie CWMac wraca
+        // z oknem i z biegnącym licznikiem.
 
         guard statusItem.isVisible, let button = statusItem.button else { return }
 

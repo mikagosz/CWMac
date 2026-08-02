@@ -82,17 +82,21 @@ struct ContentView: View {
             WindowActions.shared.openSettings = { openSettings() }
         }
         .onDisappear {
-            // Zamknięcie okna podczas odliczania chowa aplikację do paska menu
-            // i usuwa ją z Docka; licznik działa dalej.
+            // Zamknięcie okna chowa aplikację do paska menu i usuwa ją z Docka;
+            // biegnący licznik działa dalej. To decyzja projektowa, nie usterka:
+            // domem CWMac jest pasek menu, a od całkowitego zamknięcia jest
+            // przycisk zasilania w oknie.
             //
-            // ⚠️ Ale tylko wtedy, gdy ikona w pasku menu naprawdę jest — inaczej
-            // aplikacja zniknęłaby zewsząd naraz, z biegnącym licznikiem do
-            // wyłączenia Maca i bez sposobu, żeby go anulować (audyt, P1-02).
-            // Gdy ikony nie ma, zostajemy w Docku: to jedyna droga powrotu.
-            let ikonaWidoczna = UserDefaults.standard.bool(forKey: DefaultsKey.showMenuBarIcon)
-            if manager.isRunning, ikonaWidoczna {
-                NSApp.setActivationPolicy(.accessory)
-            }
+            // Reguła nie ma wyjątków — ani przy stojącym liczniku, ani przy
+            // ukrytej ikonie w pasku menu. Drogą powrotu jest wtedy ponowne
+            // uruchomienie CWMac (Finder, Spotlight), które przywraca okno
+            // przez `applicationShouldHandleReopen`.
+            //
+            // Były tu kolejno dwa wyjątki, oba dające ten sam gest o dwóch
+            // różnych skutkach zależnie od niewidocznego stanu: „zostań
+            // w Docku, gdy ikony w pasku nie ma" (P1-02b) i „chowaj się tylko
+            // przy biegnącym liczniku" (P1-02c).
+            NSApp.setActivationPolicy(.accessory)
         }
     }
 
