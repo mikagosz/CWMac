@@ -16,18 +16,18 @@ import UserNotifications
 /// user-facing text is composed only after returning to the main thread.
 enum PowerActionError: Error, Sendable {
     /// The user denied permission to control System Events (code -1743).
-    case brakZgodyNaAutomatyzacje
-    case polecenieZawiodlo(kod: Int32, opis: String)
+    case notPermitted
+    case commandFailed(code: Int32, details: String)
 
     @MainActor
-    func opisDlaUzytkownika() -> String {
+    func userFacingDescription() -> String {
         let loc = Localization.shared
         switch self {
-        case .brakZgodyNaAutomatyzacje:
+        case .notPermitted:
             return loc.string("error.notPermitted")
-        case .polecenieZawiodlo(let kod, let opis):
-            let szczegol = opis.isEmpty ? loc.string("error.noDetails") : opis
-            return loc.format("error.commandFailed", Int(kod), szczegol)
+        case .commandFailed(let code, let details):
+            let detail = details.isEmpty ? loc.string("error.noDetails") : details
+            return loc.format("error.commandFailed", Int(code), detail)
         }
     }
 }
@@ -198,8 +198,8 @@ final class CountdownManager {
         actionTask = Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 try runner(action)
-            } catch let błąd as PowerActionError {
-                await MainActor.run { self?.lastError = błąd.opisDlaUzytkownika() }
+            } catch let error as PowerActionError {
+                await MainActor.run { self?.lastError = error.userFacingDescription() }
             } catch {
                 await MainActor.run {
                     self?.lastError = Localization.shared.format("error.action", error.localizedDescription)
@@ -260,14 +260,14 @@ final class CountdownManager {
             process.arguments = ["-e", "tell application \"System Events\" to shut down"]
         }
 
-        let bledy = Pipe()
-        process.standardError = bledy
+        let errorPipe = Pipe()
+        process.standardError = errorPipe
         process.standardOutput = Pipe()
 
         try process.run()
 
-        let koniecCzekania = Date().addingTimeInterval(actionTimeout)
-        while process.isRunning, Date() < koniecCzekania {
+        let waitDeadline = Date().addingTimeInterval(actionTimeout)
+        while process.isRunning, Date() < waitDeadline {
             Thread.sleep(forTimeInterval: 0.05)
         }
 
@@ -276,17 +276,17 @@ final class CountdownManager {
         guard !process.isRunning else { return }
         guard process.terminationStatus != 0 else { return }
 
-        let opis = String(
-            decoding: bledy.fileHandleForReading.readDataToEndOfFile(),
+        let details = String(
+            decoding: errorPipe.fileHandleForReading.readDataToEndOfFile(),
             as: UTF8.self
         ).trimmingCharacters(in: .whitespacesAndNewlines)
 
         // -1743 is the system code for "the user did not allow automation".
         // Worth its own message, because it is the only one a click can fix.
-        if opis.contains("-1743") || opis.localizedCaseInsensitiveContains("not allowed") {
-            throw PowerActionError.brakZgodyNaAutomatyzacje
+        if details.contains("-1743") || details.localizedCaseInsensitiveContains("not allowed") {
+            throw PowerActionError.notPermitted
         }
-        throw PowerActionError.polecenieZawiodlo(kod: process.terminationStatus, opis: opis)
+        throw PowerActionError.commandFailed(code: process.terminationStatus, details: details)
     }
 
     // MARK: - Notifications
@@ -308,20 +308,20 @@ final class CountdownManager {
     private func sendWarning() {
         let loc = Localization.shared
         let minutes = max(1, secondsLeft / 60)
-        let tresc = loc.format("notif.warningBody", loc.string(selectedAction.warningPhraseKey), minutes)
+        let body = loc.format("notif.warningBody", loc.string(selectedAction.warningPhraseKey), minutes)
 
         // Fallback route when notifications are unavailable: a label in the window
         // plus a Dock icon bounce. The warning is a feature listed in README, so it
         // must not disappear just because the user declined notifications.
         guard notificationsAllowed == true else {
-            fallbackWarning = tresc
+            fallbackWarning = body
             NSApplication.shared.requestUserAttention(.criticalRequest)
             return
         }
 
         let content = UNMutableNotificationContent()
         content.title = loc.string("notif.warningTitle")
-        content.body = tresc
+        content.body = body
         content.sound = .default
 
         let request = UNNotificationRequest(
@@ -329,12 +329,12 @@ final class CountdownManager {
             content: content,
             trigger: nil
         )
-        UNUserNotificationCenter.current().add(request) { [weak self] błąd in
-            guard błąd != nil else { return }
+        UNUserNotificationCenter.current().add(request) { [weak self] error in
+            guard error != nil else { return }
             // The notification did not go through despite permission — the fallback
             // route takes over.
             Task { @MainActor in
-                self?.fallbackWarning = tresc
+                self?.fallbackWarning = body
                 NSApplication.shared.requestUserAttention(.criticalRequest)
             }
         }

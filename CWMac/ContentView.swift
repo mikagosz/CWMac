@@ -20,7 +20,7 @@ struct ContentView: View {
 
     /// Allowed range of minutes — one place for the `Stepper`, the text field and
     /// the start button, so that they cannot drift apart (P2-04).
-    static let zakresMinut = 1...1440
+    static let minutesRange = 1...1440
 
     var body: some View {
         VStack(spacing: 24) {
@@ -153,17 +153,17 @@ struct ContentView: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 70)
                         .multilineTextAlignment(.trailing)
-                    Stepper("", value: $minutes, in: Self.zakresMinut)
+                    Stepper("", value: $minutes, in: Self.minutesRange)
                         .labelsHidden()
                         .accessibilityLabel(loc.string("a11y.minutesStepper"))
                 }
                 // The `Stepper` had a 1…1440 range, but the text field had **none** —
                 // 99999 minutes, that is 69 days, went straight through from the
                 // keyboard. Audit 2026-08-01, P2-04.
-                .onChange(of: minutes) { _, nowa in
-                    let ograniczona = min(max(nowa, Self.zakresMinut.lowerBound),
-                                          Self.zakresMinut.upperBound)
-                    if ograniczona != nowa { minutes = ograniczona }
+                .onChange(of: minutes) { _, newValue in
+                    let clamped = min(max(newValue, Self.minutesRange.lowerBound),
+                                      Self.minutesRange.upperBound)
+                    if clamped != newValue { minutes = clamped }
                 }
 
                 HStack(spacing: 8) {
@@ -188,7 +188,7 @@ struct ContentView: View {
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(!Self.zakresMinut.contains(minutes))
+            .disabled(!Self.minutesRange.contains(minutes))
         }
     }
 

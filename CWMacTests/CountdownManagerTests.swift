@@ -202,33 +202,33 @@ struct CountdownManagerTests {
     /// message making clear the Mac was **not** shut down, and what to do about it.
     @Test func aDeniedAutomationPermissionExplainsItself() async {
         let (manager, spy) = makeManager()
-        spy.shouldThrow = PowerActionError.brakZgodyNaAutomatyzacje
+        spy.shouldThrow = PowerActionError.notPermitted
         let now = Date()
         manager.start(minutes: 1, action: .shutdown, now: now)
         manager.tick(now: now.addingTimeInterval(60))
         await manager.waitForAction()
 
-        let komunikat = manager.lastError ?? ""
-        #expect(!komunikat.isEmpty)
+        let message = manager.lastError ?? ""
+        #expect(!message.isEmpty)
         // It has to say the action did NOT happen — otherwise it reads like a detail.
         // "NIE" is the Polish wording from the translation table, matched on purpose.
-        #expect(komunikat.contains("NIE") || komunikat.contains("NOT"))
+        #expect(message.contains("NIE") || message.contains("NOT"))
         // And it has to point at the place where this can be fixed.
-        #expect(komunikat.contains("Automat") || komunikat.contains("Automation"))
+        #expect(message.contains("Automat") || message.contains("Automation"))
     }
 
     /// A non-zero exit code must be an error too, not silence.
     @Test func aNonZeroExitCodeIsReported() async {
         let (manager, spy) = makeManager()
-        spy.shouldThrow = PowerActionError.polecenieZawiodlo(kod: 1, opis: "boom")
+        spy.shouldThrow = PowerActionError.commandFailed(code: 1, details: "boom")
         let now = Date()
         manager.start(minutes: 1, action: .sleep, now: now)
         manager.tick(now: now.addingTimeInterval(60))
         await manager.waitForAction()
 
-        let komunikat = manager.lastError ?? ""
-        #expect(komunikat.contains("1"))
-        #expect(komunikat.contains("boom"))
+        let message = manager.lastError ?? ""
+        #expect(message.contains("1"))
+        #expect(message.contains("boom"))
     }
 
     // MARK: - Warning before the action (P2-08)
@@ -322,7 +322,7 @@ struct CountdownManagerTests {
         let (manager, _) = makeManager()
         let now = Date()
         // 1440 minutes is the maximum that can be set in the window.
-        manager.start(minutes: ContentView.zakresMinut.upperBound, action: .sleep, now: now)
+        manager.start(minutes: ContentView.minutesRange.upperBound, action: .sleep, now: now)
         manager.tick(now: manager.deadline!.addingTimeInterval(-Double(seconds)))
         #expect(manager.formattedTime == expected)
     }
@@ -358,17 +358,17 @@ struct ProjectInvariantsTests {
 
     /// The minutes text field has to hold the same range as the `Stepper` (P2-04).
     @Test func theMinutesRangeIsSaneAndShared() {
-        #expect(ContentView.zakresMinut.lowerBound == 1)
-        #expect(ContentView.zakresMinut.upperBound == 1440)
+        #expect(ContentView.minutesRange.lowerBound == 1)
+        #expect(ContentView.minutesRange.upperBound == 1440)
     }
 
     /// Every key in the English table must have a Polish counterpart and the other
     /// way round — otherwise the user gets a raw key on screen.
     @Test func bothLanguageTablesCoverTheSameKeys() {
         let loc = Localization.shared
-        for klucz in Localization.allKeysForTesting {
-            #expect(loc.hasTranslationForTesting(klucz, language: .english), "missing EN: \(klucz)")
-            #expect(loc.hasTranslationForTesting(klucz, language: .polish), "missing PL: \(klucz)")
+        for key in Localization.allKeysForTesting {
+            #expect(loc.hasTranslationForTesting(key, language: .english), "missing EN: \(key)")
+            #expect(loc.hasTranslationForTesting(key, language: .polish), "missing PL: \(key)")
         }
         // Control check: the sieve has to be checking something.
         #expect(Localization.allKeysForTesting.count > 20)
