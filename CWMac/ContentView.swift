@@ -2,7 +2,7 @@
 //  ContentView.swift
 //  CWMac
 //
-//  Ekran główny: ustawianie czasu i akcji oraz podgląd odliczania.
+//  Main screen: setting the time and the action, plus the countdown view.
 //
 
 import SwiftUI
@@ -18,8 +18,8 @@ struct ContentView: View {
 
     private let presets = [15, 30, 60, 120]
 
-    /// Dozwolony zakres minut — jedno miejsce dla `Stepper`, pola tekstowego
-    /// i przycisku startu, żeby nie mogły się rozjechać (P2-04).
+    /// Allowed range of minutes — one place for the `Stepper`, the text field and
+    /// the start button, so that they cannot drift apart (P2-04).
     static let zakresMinut = 1...1440
 
     var body: some View {
@@ -39,8 +39,8 @@ struct ContentView: View {
                     .multilineTextAlignment(.center)
             }
 
-            // Droga zapasowa ostrzeżenia, gdy powiadomienia systemowe są
-            // niedostępne — inaczej znikałoby bez śladu (P2-10).
+            // Fallback route for the warning when system notifications are
+            // unavailable — otherwise it would disappear without a trace (P2-10).
             if let warning = manager.fallbackWarning {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
@@ -56,8 +56,8 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .help(loc.string("menu.settings"))
-            // `help` to podpowiedź, nie etykieta dostępności — VoiceOver czytał
-            // te przyciski jako nieopisane. Audyt 2026-08-01, P2-06.
+            // `help` is a tooltip, not an accessibility label — VoiceOver read these
+            // buttons as undescribed. Audit 2026-08-01, P2-06.
             .accessibilityLabel(loc.string("a11y.settings"))
             .padding(10)
         }
@@ -69,38 +69,38 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .help(loc.string("quit.help"))
-            // Ten przycisk NATYCHMIAST zamyka aplikację — z VoiceOverem był
-            // nieopisanym, nieodwracalnym przyciskiem.
+            // This button quits the app IMMEDIATELY — under VoiceOver it was an
+            // undescribed, irreversible button.
             .accessibilityLabel(loc.string("a11y.quit"))
             .padding(10)
         }
         .onAppear {
-            // Okno jest widoczne — pokaż aplikację w Docku.
+            // The window is visible — show the app in the Dock.
             NSApp.setActivationPolicy(.regular)
-            // Zapamiętaj sposoby otwierania okna i ustawień (używane przez pasek menu).
+            // Remember how to open the window and the settings (used by the menu bar).
             WindowActions.shared.openMain = { openWindow(id: "main") }
             WindowActions.shared.openSettings = { openSettings() }
         }
         .onDisappear {
-            // Zamknięcie okna chowa aplikację do paska menu i usuwa ją z Docka;
-            // biegnący licznik działa dalej. To decyzja projektowa, nie usterka:
-            // domem CWMac jest pasek menu, a od całkowitego zamknięcia jest
-            // przycisk zasilania w oknie.
+            // Closing the window hides the app into the menu bar and removes it from
+            // the Dock; a running countdown carries on. This is a design decision,
+            // not a defect: the menu bar is CWMac's home, and the power button in
+            // the window is there for quitting completely.
             //
-            // Reguła nie ma wyjątków — ani przy stojącym liczniku, ani przy
-            // ukrytej ikonie w pasku menu. Drogą powrotu jest wtedy ponowne
-            // uruchomienie CWMac (Finder, Spotlight), które przywraca okno
-            // przez `applicationShouldHandleReopen`.
+            // The rule has no exceptions — neither with an idle countdown nor with a
+            // hidden menu bar icon. The way back is then to launch CWMac again
+            // (Finder, Spotlight), which restores the window through
+            // `applicationShouldHandleReopen`.
             //
-            // Były tu kolejno dwa wyjątki, oba dające ten sam gest o dwóch
-            // różnych skutkach zależnie od niewidocznego stanu: „zostań
-            // w Docku, gdy ikony w pasku nie ma" (P1-02b) i „chowaj się tylko
-            // przy biegnącym liczniku" (P1-02c).
+            // There were two exceptions here in turn, both giving the same gesture
+            // two different outcomes depending on invisible state: "stay in the Dock
+            // when there is no menu bar icon" (P1-02b) and "hide only while the
+            // countdown is running" (P1-02c).
             NSApp.setActivationPolicy(.accessory)
         }
     }
 
-    // MARK: - Nagłówek
+    // MARK: - Header
 
     private var header: some View {
         VStack(spacing: 6) {
@@ -124,18 +124,18 @@ struct ContentView: View {
         }
     }
 
-    /// Wersja aplikacji odczytana z bundla (CFBundleShortVersionString).
+    /// App version read from the bundle (CFBundleShortVersionString).
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
-    // MARK: - Ustawienia
+    // MARK: - Setup
 
     private var setupView: some View {
         VStack(spacing: 20) {
-            // Etykieta z tabeli tłumaczeń, nie zaszyta po polsku. `labelsHidden()`
-            // ukrywa ją wizualnie, ale zostaje tym, co czyta VoiceOver — więc
-            // anglojęzyczny użytkownik słyszał polskie „Akcja". Audyt, P2-05.
+            // Label from the translation table, not hardcoded in Polish.
+            // `labelsHidden()` hides it visually, but it stays what VoiceOver reads —
+            // so an English-speaking user heard the Polish "Akcja". Audit, P2-05.
             Picker(loc.string("setup.actionLabel"), selection: $action) {
                 ForEach(PowerAction.allCases) { item in
                     Label(loc.string(item.titleKey), systemImage: item.systemImage).tag(item)
@@ -157,9 +157,9 @@ struct ContentView: View {
                         .labelsHidden()
                         .accessibilityLabel(loc.string("a11y.minutesStepper"))
                 }
-                // `Stepper` miał zakres 1…1440, ale pole tekstowe **żadnego** —
-                // z klawiatury przechodziło 99999 minut, czyli 69 dni.
-                // Audyt 2026-08-01, P2-04.
+                // The `Stepper` had a 1…1440 range, but the text field had **none** —
+                // 99999 minutes, that is 69 days, went straight through from the
+                // keyboard. Audit 2026-08-01, P2-04.
                 .onChange(of: minutes) { _, nowa in
                     let ograniczona = min(max(nowa, Self.zakresMinut.lowerBound),
                                           Self.zakresMinut.upperBound)
@@ -192,7 +192,7 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Odliczanie
+    // MARK: - Countdown
 
     private var runningView: some View {
         VStack(spacing: 20) {

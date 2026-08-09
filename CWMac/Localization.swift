@@ -2,13 +2,13 @@
 //  Localization.swift
 //  CWMac
 //
-//  Prosty, reaktywny system tłumaczeń (PL/EN) działający w SwiftUI i AppKit,
-//  z możliwością zmiany języka w locie.
+//  A simple, reactive translation system (PL/EN) that works in both SwiftUI and
+//  AppKit, with the language switchable on the fly.
 //
 
 import Foundation
 
-/// Dostępne języki interfejsu.
+/// Available interface languages.
 enum AppLanguage: String, CaseIterable, Identifiable {
     case system
     case english
@@ -16,7 +16,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
-    /// Klucz nazwy języka w tabeli tłumaczeń.
+    /// Key of the language name in the translation table.
     var nameKey: String {
         switch self {
         case .system: return "language.system"
@@ -26,7 +26,7 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     }
 }
 
-/// Zarządza wyborem języka i dostarcza przetłumaczone teksty.
+/// Manages the language choice and supplies translated text.
 @MainActor
 @Observable
 final class Localization {
@@ -43,7 +43,7 @@ final class Localization {
         language = AppLanguage(rawValue: raw) ?? .system
     }
 
-    /// Aktualny kod języka ("pl" lub "en").
+    /// The current language code ("pl" or "en").
     private var code: String {
         switch language {
         case .system:
@@ -56,23 +56,23 @@ final class Localization {
         }
     }
 
-    /// Zwraca przetłumaczony tekst dla klucza (z fallbackiem na angielski, potem klucz).
+    /// Returns the translated text for a key (falling back to English, then the key).
     func string(_ key: String) -> String {
         let table = code == "pl" ? Self.pl : Self.en
         return table[key] ?? Self.en[key] ?? key
     }
 
-    /// Zwraca przetłumaczony i sformatowany tekst.
+    /// Returns translated and formatted text.
     func format(_ key: String, _ arguments: CVarArg...) -> String {
         String(format: string(key), arguments: arguments)
     }
 
-    // MARK: - Szew testowy
+    // MARK: - Test seam
 
-    /// Wszystkie klucze użyte w interfejsie — suma obu tabel.
+    /// Every key used in the interface — the union of both tables.
     ///
-    /// Brakujące tłumaczenie nie jest błędem kompilacji: użytkownik po prostu
-    /// zobaczy surowy klucz. Test po tej liście to jedyne sito na taki błąd.
+    /// A missing translation is not a compile error: the user simply sees the raw
+    /// key. A test walking this list is the only sieve for that kind of bug.
     static var allKeysForTesting: [String] {
         Array(Set(en.keys).union(pl.keys)).sorted()
     }
@@ -85,7 +85,7 @@ final class Localization {
         }
     }
 
-    // MARK: - Tabele tłumaczeń
+    // MARK: - Translation tables
 
     private static let en: [String: String] = [
         "app.subtitle": "Schedule your Mac to sleep or shut down",

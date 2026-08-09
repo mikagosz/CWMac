@@ -2,13 +2,13 @@
 //  StatusItemController.swift
 //  CWMac
 //
-//  Ikona w pasku menu oparta na NSStatusItem — obsługuje pojedyncze
-//  kliknięcie (menu) oraz podwójne kliknięcie (otwarcie okna).
+//  Menu bar icon built on NSStatusItem — handles a single click (menu)
+//  and a double click (opens the window).
 //
 
 import AppKit
 
-/// Przechowuje akcję otwarcia głównego okna, dostępną poza hierarchią SwiftUI.
+/// Holds the action that opens the main window, reachable outside the SwiftUI hierarchy.
 @MainActor
 final class WindowActions {
     static let shared = WindowActions()
@@ -17,7 +17,7 @@ final class WindowActions {
     private init() {}
 }
 
-/// Zarządza pozycją w pasku menu i jej interakcjami.
+/// Manages the menu bar item and its interactions.
 @MainActor
 final class StatusItemController: NSObject {
 
@@ -25,9 +25,9 @@ final class StatusItemController: NSObject {
     private var statusItem: NSStatusItem?
     private var pendingClick: DispatchWorkItem?
 
-    /// Ikona przechowywana między odświeżeniami — przebudowywana tylko wtedy,
-    /// gdy naprawdę zmienił się styl. Wcześniej `NSImage(named:)` powstawał
-    /// co sekundę przez całe życie aplikacji (P2-01).
+    /// Icon kept between refreshes — rebuilt only when the style has actually
+    /// changed. `NSImage(named:)` used to be created every second for the entire
+    /// life of the app (P2-01).
     private var cachedImage: NSImage?
     private var cachedMono: Bool?
 
@@ -46,19 +46,19 @@ final class StatusItemController: NSObject {
         }
         statusItem = item
 
-        // Żadnego własnego zegara.
+        // No clock of its own.
         //
-        // Wcześniej stał tu `Timer` 1 Hz tworzony raz i nigdy niezatrzymywany —
-        // co sekundę, także gdy nic nie odliczało, powstawało nowe zadanie,
-        // czytane były dwa klucze `UserDefaults` i podmieniany obraz przycisku.
-        // Dla narzędzia siedzącego w tle całymi dniami to stały koszt
-        // energetyczny bez powodu (P2-01). Do tego drugi zegar znaczył, że
-        // minuty w pasku bywały o sekundę nieaktualne względem licznika (P3-03).
+        // There used to be a 1 Hz `Timer` here, created once and never stopped —
+        // every second, even when nothing was counting down, a new task was created,
+        // two `UserDefaults` keys were read and the button image was replaced. For a
+        // tool that sits in the background for days that is a constant energy cost
+        // for no reason (P2-01). On top of that, a second clock meant the minutes in
+        // the menu bar could be a second out of date against the countdown (P3-03).
         //
-        // Teraz odświeżamy się z tego samego tiku, co licznik…
+        // Now we refresh from the same tick as the countdown…
         manager.onStateChange = { [weak self] in self?.update() }
 
-        // …a zmiany ustawień przychodzą powiadomieniem, nie odpytywaniem.
+        // …and settings changes arrive by notification, not by polling.
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(settingsChanged),
@@ -73,19 +73,19 @@ final class StatusItemController: NSObject {
         MainActor.assumeIsolated { update() }
     }
 
-    /// Aktualizuje ikonę i tytuł zgodnie ze stanem licznika oraz ustawieniami.
+    /// Updates the icon and title to match the countdown state and the settings.
     private func update() {
         guard let statusItem else { return }
         let defaults = UserDefaults.standard
 
         statusItem.isVisible = defaults.bool(forKey: DefaultsKey.showMenuBarIcon)
 
-        // Stał tu kiedyś strażnik wciągający aplikację z powrotem do Docka, gdy
-        // ikona w pasku znikała. Zdjęty razem z wyjątkiem w `ContentView`
-        // (audyt 2026-08-01, P1-02b): polityka aktywacji należy do okna i ma
-        // jedną regułę bez wyjątków. Wyjściem awaryjnym przy ukrytej ikonie jest
-        // `applicationShouldHandleReopen` — ponowne uruchomienie CWMac wraca
-        // z oknem i z biegnącym licznikiem.
+        // There used to be a guard here that pulled the app back into the Dock when
+        // the menu bar icon disappeared. Removed together with the exception in
+        // `ContentView` (audit 2026-08-01, P1-02b): the activation policy belongs to
+        // the window and has one rule with no exceptions. The escape hatch with a
+        // hidden icon is `applicationShouldHandleReopen` — launching CWMac again
+        // comes back with the window and with the countdown still running.
 
         guard statusItem.isVisible, let button = statusItem.button else { return }
 
@@ -107,7 +107,7 @@ final class StatusItemController: NSObject {
         }
     }
 
-    /// Buduje tytuł „ 30 zzz", gdzie „zzz" jest symbolem SF (ukośnym).
+    /// Builds the " 30 zzz" title, where "zzz" is an SF Symbol (the slanted one).
     private func runningTitle() -> NSAttributedString {
         let font = NSFont.menuBarFont(ofSize: 0)
         let title = NSMutableAttributedString(
@@ -121,7 +121,7 @@ final class StatusItemController: NSObject {
             symbol.isTemplate = true
             let attachment = NSTextAttachment()
             attachment.image = symbol
-            // Wyśrodkuj symbol względem wysokości tekstu.
+            // Center the symbol against the height of the text.
             let height = symbol.size.height
             attachment.bounds = CGRect(
                 x: 0,
@@ -135,7 +135,7 @@ final class StatusItemController: NSObject {
         return title
     }
 
-    // MARK: - Obsługa kliknięć
+    // MARK: - Click handling
 
     @objc private func handleClick(_ sender: NSStatusBarButton) {
         let event = NSApp.currentEvent
@@ -148,13 +148,13 @@ final class StatusItemController: NSObject {
         }
 
         if clickCount >= 2 {
-            // Podwójne kliknięcie — otwórz okno i anuluj zaplanowane menu.
+            // Double click — open the window and cancel the scheduled menu.
             pendingClick?.cancel()
             pendingClick = nil
             openMainWindow()
         } else {
-            // Pojedyncze kliknięcie — pokaż menu z małym opóźnieniem,
-            // aby móc wykryć ewentualne podwójne kliknięcie.
+            // Single click — show the menu after a small delay, so that a possible
+            // double click can still be detected.
             let work = DispatchWorkItem { [weak self] in
                 self?.pendingClick = nil
                 self?.showMenu()
@@ -225,8 +225,8 @@ final class StatusItemController: NSObject {
     @objc private func openSettings() {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        // Odłożenie o jeden cykl pętli — okno Ustawień nie otwiera się
-        // niezawodnie w trakcie zamykania menu paska.
+        // Deferred by one run loop cycle — the Settings window does not open
+        // reliably while the menu bar menu is closing.
         DispatchQueue.main.async {
             WindowActions.shared.openSettings?()
         }

@@ -8,7 +8,7 @@
 import SwiftUI
 import AppKit
 
-/// Utrzymuje aplikację przy życiu po zamknięciu okna i tworzy ikonę w pasku menu.
+/// Keeps the app alive after the window is closed and creates the menu bar icon.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusController: StatusItemController?
@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.register(defaults: DefaultsKey.defaults)
         statusController = StatusItemController(manager: .shared)
 
-        // Raz, przy starcie — nie przy każdym uruchomieniu licznika (P3-01).
+        // Once, at startup — not on every countdown start (P3-01).
         Task { await CountdownManager.shared.requestNotificationPermission() }
     }
 
@@ -25,11 +25,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
-    /// Kliknięcie w CWMac w Docku, Finderze albo Spotlighcie ma przywracać okno.
+    /// Clicking CWMac in the Dock, Finder or Spotlight should bring the window back.
     ///
-    /// Tania siatka bezpieczeństwa dla wszystkich ścieżek, w których użytkownik
-    /// stracił z oczu aplikację — bez tego ponowne uruchomienie działającej już
-    /// instancji potrafi nie zrobić nic (audyt 2026-08-01, P1-02).
+    /// A cheap safety net for every path where the user lost sight of the app —
+    /// without it, launching an already running instance can do nothing at all
+    /// (audit 2026-08-01, P1-02).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         guard !hasVisibleWindows else { return true }
         NSApp.setActivationPolicy(.regular)

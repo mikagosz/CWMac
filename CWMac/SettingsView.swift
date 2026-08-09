@@ -2,7 +2,7 @@
 //  SettingsView.swift
 //  CWMac
 //
-//  Okno ustawień aplikacji.
+//  The app settings window.
 //
 
 import SwiftUI
@@ -17,9 +17,9 @@ struct SettingsView: View {
             Section(loc.string("settings.section.menuBar")) {
                 Toggle(loc.string("settings.showIcon"), isOn: $showMenuBarIcon)
                 if !showMenuBarIcon {
-                    // Ukrycie ikony jest dozwolone i niczego nie zmienia w Docku
-                    // — dlatego tekst musi powiedzieć, jak wrócić do aplikacji,
-                    // gdy zniknie i z paska, i z Docka (P1-02b).
+                    // Hiding the icon is allowed and changes nothing in the Dock
+                    // — which is why this text has to say how to get back to the
+                    // app once it is gone from both the bar and the Dock (P1-02b).
                     Text(loc.string("settings.iconHiddenHint"))
                         .font(.caption)
                         .foregroundStyle(.secondary)

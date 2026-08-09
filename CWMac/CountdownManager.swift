@@ -2,20 +2,20 @@
 //  CountdownManager.swift
 //  CWMac
 //
-//  Odlicza czas i po jego upływie usypia lub wyłącza Maca.
+//  Counts down and, when the time is up, puts the Mac to sleep or shuts it down.
 //
 
 import AppKit
 import Foundation
 import UserNotifications
 
-/// Dlaczego polecenie zasilania nie zadziałało.
+/// Why a power command did not work.
 ///
-/// Typ celowo nie zna `Localization` — powstaje poza głównym wątkiem, a tłumaczenia
-/// żyją na głównym aktorze. Niesie surowe fakty, tekst dla użytkownika składa się
-/// dopiero po powrocie na główny wątek.
+/// The type deliberately knows nothing about `Localization` — it is created off the
+/// main thread, while translations live on the main actor. It carries raw facts; the
+/// user-facing text is composed only after returning to the main thread.
 enum PowerActionError: Error, Sendable {
-    /// Użytkownik odmówił zgody na sterowanie System Events (kod -1743).
+    /// The user denied permission to control System Events (code -1743).
     case brakZgodyNaAutomatyzacje
     case polecenieZawiodlo(kod: Int32, opis: String)
 
@@ -32,77 +32,76 @@ enum PowerActionError: Error, Sendable {
     }
 }
 
-/// Zarządza odliczaniem oraz wykonaniem wybranej akcji zasilania.
+/// Manages the countdown and the execution of the selected power action.
 @MainActor
 @Observable
 final class CountdownManager {
 
-    /// Współdzielona instancja używana zarówno przez okno, jak i pasek menu.
+    /// Shared instance used by both the window and the menu bar.
     static let shared = CountdownManager()
 
-    /// Ile sekund pozostało do wykonania akcji.
+    /// How many seconds are left before the action runs.
     private(set) var secondsLeft: Int = 0
 
-    /// Całkowita liczba sekund ustawiona przy starcie (do obliczania postępu).
+    /// Total number of seconds set at start (used to compute progress).
     private(set) var totalSeconds: Int = 0
 
-    /// Czy licznik aktualnie odlicza.
+    /// Whether the countdown is currently running.
     private(set) var isRunning: Bool = false
 
-    /// Akcja, która zostanie wykonana po odliczeniu do zera.
+    /// The action that runs once the countdown reaches zero.
     private(set) var selectedAction: PowerAction = .sleep
 
-    /// Ostatni komunikat błędu (np. gdy nie udało się uruchomić polecenia systemowego).
+    /// The most recent error message (for example when a system command could not be run).
     var lastError: String?
 
-    /// Moment, w którym licznik ma dobiec zera. `nil`, gdy nic nie odlicza.
+    /// The moment the countdown is due to reach zero. `nil` when nothing is running.
     ///
-    /// To on jest źródłem prawdy, a nie `secondsLeft`: odliczanie liczone przez
-    /// odejmowanie sekundy na obrót pętli spóźnia się o narastającą sumę
-    /// narzutów, a przy uśpionym Macu stoi w miejscu. Przy akcji „uśpij" to
-    /// szczególnie dotkliwe — licznik zatrzymywałby się dokładnie wtedy, gdy ma
-    /// pracować.
+    /// This is the source of truth, not `secondsLeft`: counting down by subtracting
+    /// one second per loop iteration falls behind by the accumulated overhead, and it
+    /// stands still while the Mac is asleep. For the "sleep" action that is especially
+    /// painful — the countdown would stop exactly when it is supposed to be working.
     private(set) var deadline: Date?
 
-    /// Wykonuje wybraną akcję zasilania. Podmieniane w testach, żeby zestaw
-    /// testów nie mógł uśpić ani wyłączyć maszyny, na której działa.
+    /// Performs the selected power action. Swapped out in tests so the suite cannot
+    /// put the machine it runs on to sleep or shut it down.
     @ObservationIgnored
     var actionRunner: @Sendable (PowerAction) throws -> Void = CountdownManager.runSystemAction
 
     private var task: Task<Void, Never>?
     private var warningSent = false
 
-    /// Wołane przy każdej zmianie stanu licznika — start, tik, koniec, anulowanie.
+    /// Called on every countdown state change — start, tick, finish, cancel.
     ///
-    /// Dzięki temu ikona w pasku menu odświeża się **z tego samego tiku**, co
-    /// licznik, zamiast pilnować własnego zegara. Wcześniej były dwie niezależne
-    /// pętli 1 Hz, więc minuty w pasku bywały o sekundę nieaktualne (P3-03),
-    /// a jedna z nich chodziła bez przerwy przez całe życie aplikacji (P2-01).
+    /// This lets the menu bar icon refresh **from the same tick** as the countdown
+    /// instead of watching its own clock. There used to be two independent 1 Hz
+    /// loops, so the minutes in the menu bar could be a second out of date (P3-03),
+    /// and one of them ran non-stop for the entire life of the app (P2-01).
     @ObservationIgnored
     var onStateChange: (@MainActor () -> Void)?
 
-    /// Czy system zgodził się na powiadomienia. `nil` = jeszcze nie pytaliśmy.
+    /// Whether the system granted notification permission. `nil` = not asked yet.
     ///
-    /// Gdy zgody nie ma, ostrzeżenie idzie drogą zapasową — inaczej znika bez
-    /// śladu, a jest wymienione w README jako funkcja (P2-10).
+    /// Without permission the warning takes the fallback route — otherwise it
+    /// disappears without a trace, and README lists it as a feature (P2-10).
     @ObservationIgnored
     private(set) var notificationsAllowed: Bool?
 
-    /// Ostrzeżenie pokazane w oknie, gdy powiadomienia systemowe są niedostępne.
+    /// Warning shown in the window when system notifications are unavailable.
     private(set) var fallbackWarning: String?
 
-    /// Postęp odliczania w zakresie 0...1.
+    /// Countdown progress in the 0...1 range.
     var progress: Double {
         guard totalSeconds > 0 else { return 0 }
         return Double(totalSeconds - secondsLeft) / Double(totalSeconds)
     }
 
-    /// Pozostały czas w minutach (zaokrąglony w górę) — do wyświetlenia w pasku menu.
+    /// Remaining time in minutes (rounded up) — for display in the menu bar.
     var minutesRemaining: Int {
         Int((Double(secondsLeft) / 60.0).rounded(.up))
     }
 
-    /// Sformatowany pozostały czas, np. "1:05:09" lub "09:59".
+    /// Formatted remaining time, e.g. "1:05:09" or "09:59".
     var formattedTime: String {
         let hours = secondsLeft / 3600
         let minutes = (secondsLeft % 3600) / 60
@@ -113,14 +112,14 @@ final class CountdownManager {
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
-    /// Sekunda przed końcem, przy której wysyłamy ostrzeżenie.
+    /// The second before the end at which the warning is sent.
     private var warningThreshold: Int {
-        if totalSeconds > 300 { return 300 }   // 5 minut przed końcem
-        if totalSeconds > 60 { return 60 }     // 1 minuta przed końcem
-        return 0                                // za krótko, aby ostrzegać
+        if totalSeconds > 300 { return 300 }   // 5 minutes before the end
+        if totalSeconds > 60 { return 60 }     // 1 minute before the end
+        return 0                                // too short to warn
     }
 
-    /// Rozpoczyna odliczanie dla podanej liczby minut i wybranej akcji.
+    /// Starts the countdown for the given number of minutes and the selected action.
     func start(minutes: Int, action: PowerAction, now: Date = Date()) {
         guard minutes > 0 else { return }
         cancel()
@@ -133,13 +132,13 @@ final class CountdownManager {
         fallbackWarning = nil
         isRunning = true
 
-        // O zgodę na powiadomienia pytamy RAZ, przy starcie aplikacji — nie przy
-        // każdym uruchomieniu licznika w nieprzechowywanym zadaniu (P3-01).
+        // Notification permission is requested ONCE, at app startup — not on every
+        // countdown start from inside an unretained task (P3-01).
         task = Task { [weak self] in await self?.runLoop() }
         onStateChange?()
     }
 
-    /// Zatrzymuje odliczanie bez wykonywania akcji.
+    /// Stops the countdown without performing the action.
     func cancel() {
         task?.cancel()
         task = nil
@@ -151,19 +150,18 @@ final class CountdownManager {
         onStateChange?()
     }
 
-    /// Przelicza stan na podaną chwilę i zwraca `true`, gdy czas właśnie minął.
+    /// Recomputes state for the given moment and returns `true` when time has just run out.
     ///
-    /// Wydzielone z pętli, żeby dało się to sprawdzić w teście bez czekania —
-    /// wystarczy podać `now` z przyszłości.
+    /// Split out of the loop so it can be checked in a test without waiting —
+    /// it is enough to pass a `now` from the future.
     @discardableResult
     func tick(now: Date = Date()) -> Bool {
         guard let deadline else { return false }
         secondsLeft = max(0, Int(deadline.timeIntervalSince(now).rounded(.up)))
 
-        // Porównanie nierównością, nie równością: przy liczeniu z zegara
-        // ściennego sekundy potrafią przeskoczyć (uśpienie, obciążenie), a
-        // ostrzeżenie ma się pojawić także wtedy, gdy dokładna wartość progu
-        // została pominięta.
+        // Compared with an inequality, not equality: when counting from the wall
+        // clock, seconds can jump (sleep, load), and the warning has to appear even
+        // when the exact threshold value was skipped over.
         if !warningSent, warningThreshold > 0, secondsLeft <= warningThreshold, secondsLeft > 0 {
             warningSent = true
             sendWarning()
@@ -188,13 +186,13 @@ final class CountdownManager {
         }
     }
 
-    // MARK: - Wykonanie akcji
+    // MARK: - Performing the action
 
-    /// Uruchamia akcję poza głównym wątkiem i melduje wynik.
+    /// Runs the action off the main thread and reports the result.
     ///
-    /// Poza głównym wątkiem, bo od teraz **czekamy** na zakończenie polecenia —
-    /// czekanie na głównym wątku zamroziłoby interfejs, a przy akcji „wyłącz"
-    /// zrobiłoby to dokładnie w chwili, gdy system zaczyna się zamykać.
+    /// Off the main thread because we now **wait** for the command to finish —
+    /// waiting on the main thread would freeze the interface, and with the "shut
+    /// down" action it would do so exactly when the system starts closing.
     private func performAction(_ action: PowerAction) {
         let runner = actionRunner
         actionTask = Task.detached(priority: .userInitiated) { [weak self] in
@@ -210,22 +208,22 @@ final class CountdownManager {
         }
     }
 
-    /// Uchwyt do trwającej akcji — pozwala testom **poczekać** zamiast zgadywać czas.
+    /// Handle to the running action — lets tests **wait** instead of guessing at timing.
     @ObservationIgnored
     private var actionTask: Task<Void, Never>?
 
-    /// Czeka, aż akcja zasilania się dokończy. Bez tego test sprawdzałby stan,
-    /// zanim polecenie zdąży cokolwiek zgłosić.
+    /// Waits until the power action finishes. Without this a test would check state
+    /// before the command had a chance to report anything.
     func waitForAction() async {
         await actionTask?.value
     }
 
-    // MARK: - Szwy testowe
+    // MARK: - Test seams
     //
-    // Progi ostrzegania są udokumentowaną funkcją o nieoczywistych granicach
-    // (przy dokładnie 300 s próg wynosi 60 s, nie 300 s) i **nie miały ani
-    // jednego testu**. Audyt 2026-08-01, P2-08. Poniższe trzy szwy istnieją
-    // tylko po to, żeby dało się je sprawdzić bez czekania w czasie rzeczywistym.
+    // The warning thresholds are a documented feature with non-obvious boundaries
+    // (at exactly 300 s the threshold is 60 s, not 300 s) and had **not a single
+    // test**. Audit 2026-08-01, P2-08. The three seams below exist only so they can
+    // be checked without waiting in real time.
 
     var warningThresholdForTesting: Int { warningThreshold }
     var warningSentForTesting: Bool { warningSent }
@@ -234,25 +232,25 @@ final class CountdownManager {
         totalSeconds = value
     }
 
-    /// Ile najwyżej czekamy na polecenie zasilania, zanim uznamy brak odpowiedzi
-    /// za sukces. Przy „wyłącz" system zaczyna się zamykać i proces potomny może
-    /// nigdy nie wrócić — limit jest tu obowiązkowy, nie ozdobny.
+    /// How long at most we wait for the power command before treating no answer as
+    /// success. With "shut down" the system starts closing and the child process may
+    /// never return — the limit is mandatory here, not decorative.
     nonisolated static let actionTimeout: TimeInterval = 5
 
-    /// Właściwe polecenie systemowe usypiające lub wyłączające Maca.
+    /// The actual system command that puts the Mac to sleep or shuts it down.
     ///
-    /// Wcześniej kończyło się na `try process.run()`, które rzuca wyjątek **tylko
-    /// wtedy, gdy nie da się uruchomić pliku wykonywalnego**. Proces kończący się
-    /// kodem błędu — na przykład po odmowie zgody na sterowanie System Events —
-    /// był nie do odróżnienia od sukcesu, więc licznik meldował wykonanie akcji,
-    /// a Mac zostawał włączony. Audyt 2026-08-01, P1-01.
+    /// This used to end at `try process.run()`, which throws **only when the
+    /// executable cannot be launched**. A process exiting with an error code — for
+    /// example after permission to control System Events was denied — was
+    /// indistinguishable from success, so the countdown reported the action as done
+    /// while the Mac stayed on. Audit 2026-08-01, P1-01.
     nonisolated static func runSystemAction(_ action: PowerAction) throws {
         let process = Process()
 
-        // Ścieżki bezwzględne zamiast `/usr/bin/env`. Aplikacja działa bez
-        // piaskownicy, więc rozwiązywanie nazwy przez `PATH` znaczyłoby, że
-        // podmieniony wcześniej katalog może podstawić własne „pmset".
-        // Audyt 2026-08-01, P2-02.
+        // Absolute paths instead of `/usr/bin/env`. The app runs unsandboxed, so
+        // resolving the name through `PATH` would mean a directory planted earlier
+        // could substitute its own "pmset".
+        // Audit 2026-08-01, P2-02.
         switch action {
         case .sleep:
             process.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
@@ -273,8 +271,8 @@ final class CountdownManager {
             Thread.sleep(forTimeInterval: 0.05)
         }
 
-        // Nie zdążył w limicie — przy „wyłącz" to normalne, bo system już się
-        // zamyka. Brak odpowiedzi traktujemy jako sukces, nie jako błąd.
+        // It did not make the limit — with "shut down" that is normal, because the
+        // system is already closing. No answer is treated as success, not an error.
         guard !process.isRunning else { return }
         guard process.terminationStatus != 0 else { return }
 
@@ -283,21 +281,21 @@ final class CountdownManager {
             as: UTF8.self
         ).trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // -1743 to systemowy kod „użytkownik nie zezwolił na automatyzację".
-        // Wart osobnego komunikatu, bo tylko on da się naprawić kliknięciem.
+        // -1743 is the system code for "the user did not allow automation".
+        // Worth its own message, because it is the only one a click can fix.
         if opis.contains("-1743") || opis.localizedCaseInsensitiveContains("not allowed") {
             throw PowerActionError.brakZgodyNaAutomatyzacje
         }
         throw PowerActionError.polecenieZawiodlo(kod: process.terminationStatus, opis: opis)
     }
 
-    // MARK: - Powiadomienia
+    // MARK: - Notifications
 
-    /// Pyta o zgodę na powiadomienia i **zapamiętuje odpowiedź**.
+    /// Asks for notification permission and **remembers the answer**.
     ///
-    /// Wcześniej wynik szedł do `_ = try?`, więc odmowa nie zostawiała śladu:
-    /// ostrzeżenie przed uśpieniem po prostu nie przychodziło i nikt się o tym
-    /// nie dowiadywał. Audyt 2026-08-01, P2-10.
+    /// The result used to go into `_ = try?`, so a refusal left no trace: the warning
+    /// before sleep simply never arrived and nobody ever found out.
+    /// Audit 2026-08-01, P2-10.
     func requestNotificationPermission() async {
         let center = UNUserNotificationCenter.current()
         do {
@@ -312,9 +310,9 @@ final class CountdownManager {
         let minutes = max(1, secondsLeft / 60)
         let tresc = loc.format("notif.warningBody", loc.string(selectedAction.warningPhraseKey), minutes)
 
-        // Droga zapasowa, gdy powiadomień nie ma: napis w oknie plus podskok
-        // ikony w Docku. Ostrzeżenie jest funkcją wymienioną w README, więc nie
-        // wolno mu zniknąć tylko dlatego, że użytkownik odmówił powiadomień.
+        // Fallback route when notifications are unavailable: a label in the window
+        // plus a Dock icon bounce. The warning is a feature listed in README, so it
+        // must not disappear just because the user declined notifications.
         guard notificationsAllowed == true else {
             fallbackWarning = tresc
             NSApplication.shared.requestUserAttention(.criticalRequest)
@@ -333,7 +331,8 @@ final class CountdownManager {
         )
         UNUserNotificationCenter.current().add(request) { [weak self] błąd in
             guard błąd != nil else { return }
-            // Powiadomienie nie weszło mimo zgody — zostaje droga zapasowa.
+            // The notification did not go through despite permission — the fallback
+            // route takes over.
             Task { @MainActor in
                 self?.fallbackWarning = tresc
                 NSApplication.shared.requestUserAttention(.criticalRequest)

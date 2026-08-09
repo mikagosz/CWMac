@@ -2,20 +2,20 @@ import Foundation
 import Testing
 @testable import CWMac
 
-/// CWMac ma jedno zadanie: wykonać akcję zasilania o właściwej porze. Te testy
-/// pilnują właśnie tego — że odliczanie trzyma się zegara ściennego, że akcja
-/// odpala się dokładnie raz i że anulowanie naprawdę anuluje.
+/// CWMac has one job: perform the power action at the right time. These tests guard
+/// exactly that — that the countdown follows the wall clock, that the action fires
+/// exactly once, and that cancelling really cancels.
 ///
-/// Każdy test podmienia `actionRunner`, więc żaden nie jest w stanie uśpić ani
-/// wyłączyć maszyny, na której leci zestaw.
+/// Every test swaps out `actionRunner`, so none of them is able to put the machine
+/// running the suite to sleep or shut it down.
 @MainActor
 struct CountdownManagerTests {
 
-    /// Menedżer z podmienioną akcją; `fired` zbiera to, co by się wykonało.
+    /// A manager with the action swapped out; `fired` collects what would have run.
     ///
-    /// Za zamkiem, bo od naprawy P1-01 akcja wykonuje się **poza głównym wątkiem**
-    /// (czekamy na zakończenie polecenia, a czekanie na głównym wątku zamroziłoby
-    /// interfejs). Bez zamka szpieg byłby wyścigiem sam w sobie.
+    /// Behind a lock, because since the P1-01 fix the action runs **off the main
+    /// thread** (we wait for the command to finish, and waiting on the main thread
+    /// would freeze the interface). Without the lock the spy would be a race itself.
     private final class Spy: @unchecked Sendable {
         private let lock = NSLock()
         private var _fired: [PowerAction] = []
@@ -51,7 +51,7 @@ struct CountdownManagerTests {
         return (manager, spy)
     }
 
-    // MARK: - Start i anulowanie
+    // MARK: - Start and cancel
 
     @Test func startSetsUpTheCountdown() {
         let (manager, _) = makeManager()
@@ -93,7 +93,7 @@ struct CountdownManagerTests {
         manager.start(minutes: 1, action: .shutdown, now: now)
         manager.cancel()
 
-        // Nawet długo po pierwotnym terminie — anulowany licznik nic nie robi.
+        // Even long past the original deadline — a cancelled countdown does nothing.
         manager.tick(now: now.addingTimeInterval(600))
         await manager.waitForAction()
         #expect(spy.fired.isEmpty)
@@ -110,15 +110,15 @@ struct CountdownManagerTests {
         #expect(manager.deadline == now.addingTimeInterval(300))
     }
 
-    // MARK: - Odliczanie trzyma się zegara ściennego
+    // MARK: - The countdown follows the wall clock
 
     @Test func remainingTimeComesFromTheClockNotFromTickCount() {
         let (manager, _) = makeManager()
         let now = Date()
         manager.start(minutes: 60, action: .sleep, now: now)
 
-        // Jeden `tick`, ale zegar przesunął się o 10 minut — tak wygląda powrót
-        // z uśpienia albo zadławiona pętla. Liczy się zegar, nie liczba obrotów.
+        // One `tick`, but the clock moved by 10 minutes — this is what waking from
+        // sleep or a stalled loop looks like. The clock counts, not the iterations.
         manager.tick(now: now.addingTimeInterval(600))
         #expect(manager.secondsLeft == 3000)
     }
@@ -128,8 +128,8 @@ struct CountdownManagerTests {
         let now = Date()
         manager.start(minutes: 30, action: .sleep, now: now)
 
-        // Mac spał dwie godziny. Termin minął dawno — akcja ma pójść od razu,
-        // a nie odliczać pozostałe 30 minut od nowa.
+        // The Mac slept for two hours. The deadline passed long ago — the action
+        // must fire straight away, not count the remaining 30 minutes over again.
         let fired = manager.tick(now: now.addingTimeInterval(7200))
         await manager.waitForAction()
         #expect(fired)
@@ -152,7 +152,7 @@ struct CountdownManagerTests {
         #expect(manager.progress == 0)
     }
 
-    // MARK: - Wykonanie akcji
+    // MARK: - Performing the action
 
     @Test func theActionFiresExactlyOnceAtTheDeadline() async {
         let (manager, spy) = makeManager()
@@ -167,7 +167,7 @@ struct CountdownManagerTests {
         #expect(spy.fired == [.shutdown])
         #expect(!manager.isRunning)
 
-        // Kolejne obroty pętli nie mogą wyłączyć Maca po raz drugi.
+        // Further loop iterations must not shut the Mac down a second time.
         manager.tick(now: now.addingTimeInterval(120))
         await manager.waitForAction()
         #expect(spy.fired == [.shutdown])
@@ -198,8 +198,8 @@ struct CountdownManagerTests {
         #expect(manager.lastError == nil)
     }
 
-    /// Sedno P1-01: odmowa zgody na sterowanie System Events ma dać komunikat,
-    /// z którego wynika, że Mac **nie** został wyłączony i co z tym zrobić.
+    /// The heart of P1-01: a denied System Events permission has to produce a
+    /// message making clear the Mac was **not** shut down, and what to do about it.
     @Test func aDeniedAutomationPermissionExplainsItself() async {
         let (manager, spy) = makeManager()
         spy.shouldThrow = PowerActionError.brakZgodyNaAutomatyzacje
@@ -210,13 +210,14 @@ struct CountdownManagerTests {
 
         let komunikat = manager.lastError ?? ""
         #expect(!komunikat.isEmpty)
-        // Musi mówić, że akcja NIE nastąpiła — inaczej brzmi jak drobiazg.
+        // It has to say the action did NOT happen — otherwise it reads like a detail.
+        // "NIE" is the Polish wording from the translation table, matched on purpose.
         #expect(komunikat.contains("NIE") || komunikat.contains("NOT"))
-        // I musi prowadzić do miejsca, w którym da się to naprawić.
+        // And it has to point at the place where this can be fixed.
         #expect(komunikat.contains("Automat") || komunikat.contains("Automation"))
     }
 
-    /// Niezerowy kod wyjścia też ma być błędem, nie ciszą.
+    /// A non-zero exit code must be an error too, not silence.
     @Test func aNonZeroExitCodeIsReported() async {
         let (manager, spy) = makeManager()
         spy.shouldThrow = PowerActionError.polecenieZawiodlo(kod: 1, opis: "boom")
@@ -230,23 +231,23 @@ struct CountdownManagerTests {
         #expect(komunikat.contains("boom"))
     }
 
-    // MARK: - Ostrzeganie przed akcją (P2-08)
+    // MARK: - Warning before the action (P2-08)
 
-    /// Progi są nieoczywiste: warunek to `totalSeconds > 300`, więc licznik
-    /// ustawiony **dokładnie** na 5 minut dostaje próg 60 s, nie 300 s.
+    /// The thresholds are non-obvious: the condition is `totalSeconds > 300`, so a
+    /// countdown set to **exactly** 5 minutes gets a 60 s threshold, not 300 s.
     @Test(arguments: [
-        (3600, 300),   // godzina → ostrzeżenie 5 min przed
-        (301, 300),    // tuż powyżej progu
-        (300, 60),     // dokładnie 5 min → już tylko minuta! (łatwo się pomylić)
-        (120, 60),     // 2 min → minuta przed
-        (61, 60),      // tuż powyżej minuty
-        (60, 0),       // dokładnie minuta → za krótko, nie ostrzegamy
-        (30, 0),       // pół minuty → nie ostrzegamy
+        (3600, 300),   // an hour → warning 5 min before
+        (301, 300),    // just above the threshold
+        (300, 60),     // exactly 5 min → only a minute left! (easy to get wrong)
+        (120, 60),     // 2 min → a minute before
+        (61, 60),      // just above a minute
+        (60, 0),       // exactly a minute → too short, no warning
+        (30, 0),       // half a minute → no warning
     ])
     func theWarningThresholdFollowsTheDocumentedRule(totalSeconds: Int, expected: Int) {
         let (manager, _) = makeManager()
         manager.start(minutes: max(1, totalSeconds / 60), action: .sleep)
-        // Ustawiamy dokładną liczbę sekund, bo `start` przyjmuje tylko minuty.
+        // We set the exact number of seconds, because `start` only takes minutes.
         manager.setTotalSecondsForTesting(totalSeconds)
         #expect(manager.warningThresholdForTesting == expected)
     }
@@ -257,27 +258,28 @@ struct CountdownManagerTests {
         manager.start(minutes: 10, action: .sleep, now: now)
         #expect(!manager.warningSentForTesting)
 
-        // 6 minut przed końcem — jeszcze nie.
+        // 6 minutes before the end — not yet.
         manager.tick(now: now.addingTimeInterval(240))
         #expect(!manager.warningSentForTesting)
 
-        // 5 minut przed końcem — teraz tak.
+        // 5 minutes before the end — now it goes.
         manager.tick(now: now.addingTimeInterval(300))
         #expect(manager.warningSentForTesting)
 
-        // Kolejne tiki nie mogą ostrzec drugi raz.
+        // Further ticks must not warn a second time.
         manager.tick(now: now.addingTimeInterval(360))
         #expect(manager.warningSentForTesting)
     }
 
-    /// Ostrzeżenie ma się pojawić także wtedy, gdy dokładna sekunda progu
-    /// została **przeskoczona** — na przykład po powrocie z uśpienia.
+    /// The warning must appear even when the exact threshold second was **skipped**
+    /// — for example after waking from sleep.
     @Test func theWarningSurvivesASkippedSecond() {
         let (manager, _) = makeManager()
         let now = Date()
         manager.start(minutes: 60, action: .sleep, now: now)
 
-        // Skok prosto z 60 minut do 2 minut przed końcem — próg 300 s minięty.
+        // A jump straight from 60 minutes to 2 minutes before the end — the 300 s
+        // threshold was passed on the way.
         manager.tick(now: now.addingTimeInterval(3480))
         #expect(manager.warningSentForTesting)
     }
@@ -304,7 +306,7 @@ struct CountdownManagerTests {
         #expect(manager.fallbackWarning == nil)
     }
 
-    // MARK: - Formatowanie
+    // MARK: - Formatting
 
     @Test(arguments: [
         (0, "00:00"),
@@ -319,7 +321,7 @@ struct CountdownManagerTests {
     func timeIsFormattedForTheDisplay(seconds: Int, expected: String) {
         let (manager, _) = makeManager()
         let now = Date()
-        // 1440 minut to maksimum, jakie da się ustawić w oknie.
+        // 1440 minutes is the maximum that can be set in the window.
         manager.start(minutes: ContentView.zakresMinut.upperBound, action: .sleep, now: now)
         manager.tick(now: manager.deadline!.addingTimeInterval(-Double(seconds)))
         #expect(manager.formattedTime == expected)
@@ -330,22 +332,22 @@ struct CountdownManagerTests {
         let now = Date()
         manager.start(minutes: 10, action: .sleep, now: now)
 
-        manager.tick(now: now.addingTimeInterval(1))     // zostało 599 s
+        manager.tick(now: now.addingTimeInterval(1))     // 599 s left
         #expect(manager.minutesRemaining == 10)
 
-        manager.tick(now: now.addingTimeInterval(541))   // zostało 59 s
+        manager.tick(now: now.addingTimeInterval(541))   // 59 s left
         #expect(manager.minutesRemaining == 1)
     }
 }
 
-/// Reguły, które nie mają gdzie się zepsuć głośno — literówka w kluczu
-/// `UserDefaults` albo rozjazd zakresu minut nie są błędem kompilacji.
+/// Rules with nowhere to break loudly — a typo in a `UserDefaults` key or a drift
+/// in the minutes range is not a compile error.
 @MainActor
 struct ProjectInvariantsTests {
 
-    /// `@AppStorage` wymaga stałej literalnej, więc klucze są w `SettingsView`
-    /// przepisane wprost. Ten test pilnuje, żeby oba zapisy zostały zgodne
-    /// — inaczej przełącznik po cichu przestaje cokolwiek robić (P2-07).
+    /// `@AppStorage` requires a literal constant, so the keys are written out
+    /// verbatim in `SettingsView`. This test keeps both spellings in agreement
+    /// — otherwise the switch quietly stops doing anything (P2-07).
     @Test func settingsKeysMatchTheSingleSourceOfTruth() {
         #expect(DefaultsKey.showMenuBarIcon == "showMenuBarIcon")
         #expect(DefaultsKey.menuBarMonochrome == "menuBarMonochrome")
@@ -354,25 +356,25 @@ struct ProjectInvariantsTests {
         #expect(DefaultsKey.defaults[DefaultsKey.menuBarMonochrome] as? Bool == true)
     }
 
-    /// Pole tekstowe minut ma trzymać ten sam zakres co `Stepper` (P2-04).
+    /// The minutes text field has to hold the same range as the `Stepper` (P2-04).
     @Test func theMinutesRangeIsSaneAndShared() {
         #expect(ContentView.zakresMinut.lowerBound == 1)
         #expect(ContentView.zakresMinut.upperBound == 1440)
     }
 
-    /// Każdy klucz z tabeli angielskiej musi mieć odpowiednik po polsku
-    /// i odwrotnie — inaczej użytkownik dostaje surowy klucz na ekranie.
+    /// Every key in the English table must have a Polish counterpart and the other
+    /// way round — otherwise the user gets a raw key on screen.
     @Test func bothLanguageTablesCoverTheSameKeys() {
         let loc = Localization.shared
         for klucz in Localization.allKeysForTesting {
-            #expect(loc.hasTranslationForTesting(klucz, language: .english), "brak EN: \(klucz)")
-            #expect(loc.hasTranslationForTesting(klucz, language: .polish), "brak PL: \(klucz)")
+            #expect(loc.hasTranslationForTesting(klucz, language: .english), "missing EN: \(klucz)")
+            #expect(loc.hasTranslationForTesting(klucz, language: .polish), "missing PL: \(klucz)")
         }
-        // Kontrola: sito musi cokolwiek sprawdzać.
+        // Control check: the sieve has to be checking something.
         #expect(Localization.allKeysForTesting.count > 20)
     }
 
-    /// `PowerAction` nie ma prawa znać `Localization` — oddaje klucze (P2-11).
+    /// `PowerAction` has no business knowing `Localization` — it hands back keys (P2-11).
     @Test func powerActionExposesKeysNotTexts() {
         #expect(PowerAction.sleep.titleKey == "action.sleep")
         #expect(PowerAction.shutdown.titleKey == "action.shutdown")

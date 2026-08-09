@@ -2,27 +2,27 @@
 //  DefaultsKey.swift
 //  CWMac
 //
-//  Nazwy kluczy w UserDefaults — w jednym miejscu.
+//  UserDefaults key names — kept in one place.
 //
 
 import Foundation
 
-/// Klucze trwałych ustawień.
+/// Keys for persisted settings.
 ///
-/// Wcześniej te same trzy napisy były przepisywane ręcznie w pięciu plikach.
-/// Literówka w którymkolwiek nie jest błędem kompilacji — daje ciche powrócenie
-/// do wartości domyślnej, czyli objaw typu „przełącznik nic nie robi", którego
-/// szuka się długo. Audyt 2026-08-01, P2-07.
+/// The same three strings used to be retyped by hand across five files. A typo in
+/// any of them is not a compile error — it silently falls back to the default
+/// value, i.e. the "this switch does nothing" symptom that takes a long time to
+/// track down. Audit 2026-08-01, P2-07.
 ///
-/// ⚠️ `@AppStorage` w SwiftUI wymaga **stałej literalnej** w niektórych wersjach
-/// narzędzi, dlatego w `SettingsView` klucze są powtórzone wprost — ale zaraz obok
-/// stoi test, który pilnuje, że oba zapisy są zgodne.
+/// ⚠️ `@AppStorage` in SwiftUI requires a **literal constant** in some toolchain
+/// versions, which is why the keys are repeated verbatim in `SettingsView` — but
+/// right beside it stands a test that keeps both spellings in agreement.
 enum DefaultsKey {
     static let showMenuBarIcon = "showMenuBarIcon"
     static let menuBarMonochrome = "menuBarMonochrome"
     static let appLanguage = "appLanguage"
 
-    /// Wartości domyślne rejestrowane przy starcie aplikacji.
+    /// Default values registered at app startup.
     static let defaults: [String: Any] = [
         menuBarMonochrome: true,
         showMenuBarIcon: true,

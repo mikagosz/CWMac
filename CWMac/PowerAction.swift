@@ -2,26 +2,26 @@
 //  PowerAction.swift
 //  CWMac
 //
-//  Akcja wykonywana po upływie licznika.
+//  The action performed when the countdown runs out.
 //
 
 import Foundation
 
-/// Rodzaj akcji, jaką CWMac wykona po odliczeniu czasu do zera.
+/// The kind of action CWMac performs once the countdown reaches zero.
 enum PowerAction: String, CaseIterable, Identifiable {
     case sleep
     case shutdown
 
     var id: String { rawValue }
 
-    // Ten typ celowo **nie zna** `Localization.shared`.
+    // This type deliberately **knows nothing** about `Localization.shared`.
     //
-    // Wcześniej sięgał po globalny singleton, przez co prosty enum danych był
-    // związany z globalnym stanem i izolacją głównego aktora — trudniejszy do
-    // przetestowania i mieszający warstwę danych z prezentacją. Teraz oddaje
-    // klucze, a tekst składa ten, kto go pokazuje. Audyt 2026-08-01, P2-11.
+    // It used to reach for the global singleton, which tied a plain data enum to
+    // global state and main-actor isolation — harder to test, and mixing the data
+    // layer with presentation. Now it hands back keys, and whoever displays the
+    // text composes it. Audit 2026-08-01, P2-11.
 
-    /// Klucz etykiety wyświetlanej użytkownikowi.
+    /// Key of the label shown to the user.
     var titleKey: String {
         switch self {
         case .sleep: return "action.sleep"
@@ -29,7 +29,7 @@ enum PowerAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Symbol SF Symbols reprezentujący akcję.
+    /// The SF Symbols glyph representing the action.
     var systemImage: String {
         switch self {
         case .sleep: return "moon.zzz.fill"
@@ -37,7 +37,7 @@ enum PowerAction: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Klucz opisu użytego w powiadomieniu ostrzegawczym.
+    /// Key of the wording used in the warning notification.
     var warningPhraseKey: String {
         switch self {
         case .sleep: return "warning.sleep"
