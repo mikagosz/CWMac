@@ -26,3 +26,7 @@ Products/
 /*.pkgbuilder
 /*.tiff
 /CWMac */
+
+# The installer wizard needs the licence as a .txt next to it, so a second copy
+# of LICENSE shows up in the root. The tracked LICENSE file is the real one.
+/LICENSE.txt
