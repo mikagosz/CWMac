@@ -42,6 +42,11 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .tint(.cwPurple)
         .frame(width: 380)
+        // Settings is a window like any other, so it obeys the same Dock rule. Without
+        // this it was the hole the rule fell through: opened from the menu bar it put
+        // CWMac in the Dock, and closing it left the app there with nothing on screen
+        // (P1-02d).
+        .dockPresence()
     }
 
     private var languageBinding: Binding<AppLanguage> {

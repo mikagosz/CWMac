@@ -74,29 +74,16 @@ struct ContentView: View {
             .accessibilityLabel(loc.string("a11y.quit"))
             .padding(10)
         }
+        // Closing the window hides the app into the menu bar and takes it out of the
+        // Dock; a running countdown carries on. This is a design decision, not a
+        // defect: the menu bar is CWMac's home, and the power button above quits
+        // completely. The rule itself, and why it does not live in this file any
+        // more, is in `DockPresence`.
+        .dockPresence()
         .onAppear {
-            // The window is visible — show the app in the Dock.
-            NSApp.setActivationPolicy(.regular)
             // Remember how to open the window and the settings (used by the menu bar).
             WindowActions.shared.openMain = { openWindow(id: "main") }
             WindowActions.shared.openSettings = { openSettings() }
-        }
-        .onDisappear {
-            // Closing the window hides the app into the menu bar and removes it from
-            // the Dock; a running countdown carries on. This is a design decision,
-            // not a defect: the menu bar is CWMac's home, and the power button in
-            // the window is there for quitting completely.
-            //
-            // The rule has no exceptions — neither with an idle countdown nor with a
-            // hidden menu bar icon. The way back is then to launch CWMac again
-            // (Finder, Spotlight), which restores the window through
-            // `applicationShouldHandleReopen`.
-            //
-            // There were two exceptions here in turn, both giving the same gesture
-            // two different outcomes depending on invisible state: "stay in the Dock
-            // when there is no menu bar icon" (P1-02b) and "hide only while the
-            // countdown is running" (P1-02c).
-            NSApp.setActivationPolicy(.accessory)
         }
     }
 

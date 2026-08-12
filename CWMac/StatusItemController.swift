@@ -165,8 +165,7 @@ final class StatusItemController: NSObject {
     }
 
     private func openMainWindow() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        DockPresence.windowWillOpen()
         WindowActions.shared.openMain?()
     }
 
@@ -223,8 +222,7 @@ final class StatusItemController: NSObject {
     }
 
     @objc private func openSettings() {
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        DockPresence.windowWillOpen()
         // Deferred by one run loop cycle — the Settings window does not open
         // reliably while the menu bar menu is closing.
         DispatchQueue.main.async {

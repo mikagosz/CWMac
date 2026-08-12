@@ -32,8 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// (audit 2026-08-01, P1-02).
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
         guard !hasVisibleWindows else { return true }
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
+        DockPresence.windowWillOpen()
         WindowActions.shared.openMain?()
         return true
     }
