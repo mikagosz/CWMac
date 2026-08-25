@@ -99,4 +99,12 @@ Built with SwiftUI + AppKit, using the Observation framework (`@Observable`) and
 
 ## License / Licencja
 
-Released under the [MIT License](LICENSE).
+The **source code** is released under the [MIT License](LICENSE).
+
+The **artwork is not**: the app icon (`CWMac/cwmac.icon/`), the logo and menu bar icons
+(`CWMac/Assets.xcassets/`) and the images in `docs/` are Copyright (c) 2026 mikagosz,
+all rights reserved, and are excluded from the MIT grant — see [NOTICE](NOTICE).
+If you fork this project, replace them with your own.
+
+Kod źródłowy na [licencji MIT](LICENSE). **Grafika nie** — ikona programu, ikony paska
+menu i obrazki w `docs/` pozostają zastrzeżone, patrz [NOTICE](NOTICE).
