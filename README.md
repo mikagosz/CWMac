@@ -16,7 +16,7 @@ Interfejs po angielsku i po polsku.*
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/screenshot.png" width="360" alt="CWMac window">
+  <img src="docs/hero.png" width="100%" alt="CWMac on macOS: two windows side by side — the countdown running towards sleep, and the setup with the sleep and shut down options and the preset durations">
 </p>
 
 ## Download / Pobierz
