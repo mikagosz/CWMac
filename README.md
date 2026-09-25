@@ -15,6 +15,8 @@ Interfejs po angielsku i po polsku.*
 [![macOS 26+](https://img.shields.io/badge/macOS-26%2B-000000?logo=apple&logoColor=white)](https://www.apple.com/macos)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+<a href="https://github.com/sponsors/mikagosz"><img src="https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-EA4AAA?logo=githubsponsors&logoColor=white" width="350" alt="Sponsor on GitHub Sponsors"></a>
+
 <p align="center">
   <img src="docs/hero.png" width="100%" alt="CWMac on macOS: two windows side by side — the countdown running towards sleep, and the setup with the sleep and shut down options and the preset durations">
 </p>
