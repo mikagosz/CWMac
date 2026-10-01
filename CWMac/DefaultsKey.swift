@@ -21,6 +21,8 @@ enum DefaultsKey {
     static let showMenuBarIcon = "showMenuBarIcon"
     static let menuBarMonochrome = "menuBarMonochrome"
     static let appLanguage = "appLanguage"
+    /// Look for a newer version once a month (`Updates`). Registered in `Updates`.
+    static let checkUpdates = "checkUpdates"
 
     /// Default values registered at app startup.
     static let defaults: [String: Any] = [

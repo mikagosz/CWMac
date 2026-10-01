@@ -19,6 +19,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Once, at startup — not on every countdown start (P3-01).
         Task { await CountdownManager.shared.requestNotificationPermission() }
+
+        // The restart after an update would cancel a running countdown.
+        Updates.shared.isBusy = { CountdownManager.shared.isRunning }
+        Updates.shared.start()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

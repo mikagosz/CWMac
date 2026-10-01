@@ -6,11 +6,14 @@
 //
 
 import SwiftUI
+import Combine
 
 struct SettingsView: View {
     @Environment(Localization.self) private var loc
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("menuBarMonochrome") private var menuBarMonochrome = true
+    @AppStorage("checkUpdates") private var checkUpdates = true
+    @ObservedObject private var updates = Updates.shared
 
     var body: some View {
         Form {
@@ -31,6 +34,21 @@ struct SettingsView: View {
                 .disabled(!showMenuBarIcon)
             }
 
+            Section(loc.string("settings.section.updates")) {
+                Toggle(loc.string("settings.checkUpdates"), isOn: $checkUpdates)
+                    .onChange(of: checkUpdates) { _, on in updates.enabled = on }
+                HStack {
+                    Text(lastCheckText).foregroundStyle(.secondary)
+                    Spacer()
+                    Button(loc.string("settings.checkNow")) {
+                        Task { await updates.check(manually: true) }
+                    }
+                }
+                Text(loc.string("settings.updatesPrivacy"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section(loc.string("settings.section.language")) {
                 Picker(loc.string("settings.language"), selection: languageBinding) {
                     ForEach(AppLanguage.allCases) { language in
@@ -47,6 +65,11 @@ struct SettingsView: View {
         // CWMac in the Dock, and closing it left the app there with nothing on screen
         // (P1-02d).
         .dockPresence()
+    }
+
+    private var lastCheckText: String {
+        guard let date = updates.lastCheck else { return loc.string("settings.notChecked") }
+        return loc.format("settings.lastCheck", date.formatted(date: .abbreviated, time: .shortened))
     }
 
     private var languageBinding: Binding<AppLanguage> {

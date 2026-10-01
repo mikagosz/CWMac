@@ -43,6 +43,7 @@ Interfejs po angielsku i po polsku.*
 - 🖱️ **Double-click** the menu bar icon to open the window; single / right click opens a menu.
 - 🫥 Closing the window keeps the app running in the menu bar and hides it from the Dock. Launch CWMac again (Spotlight, Finder, Dock) to bring the window back; the power button in the window quits for good.
 - 🌍 Language switch in Settings: **System / English / Polski** (changes live, no restart).
+- ⬇️ Updates from inside the app: once a month CWMac asks `downloads.fractal8.eu/CWMac` for the newest version number (nothing else is sent) and offers **Install and Restart**, **Skip This Version** or a manual download. Nothing installs until you click, and not while a countdown runs — the restart would cancel it. Switch and **Check Now** in Settings → Updates. Built on [ErrorUpdate](https://github.com/mikagosz/ErrorUpdate) 1.0.1 with crash reporting off; the installer checks the package's SHA-256 and the new app's code signature.
 
 ## Requirements / Wymagania
 
@@ -93,7 +94,9 @@ machine they run on.
 | `CountdownManager.swift` | Timer logic (async/await) and running the sleep/shutdown commands. |
 | `PowerAction.swift` | The sleep / shutdown action type. |
 | `StatusItemController.swift` | Menu bar icon (AppKit `NSStatusItem`), click handling, menu. |
-| `SettingsView.swift` | Settings window (icon visibility/style, language). |
+| `SettingsView.swift` | Settings window (icon visibility/style, updates, language). |
+| `Updates.swift` | In-app updates through ErrorUpdate: monthly check, the update window, install and restart. |
+| `UpdateSupport.swift` | Which download address is allowed, and the restart helper that waits for the old copy to quit. |
 | `Localization.swift` | Lightweight PL/EN translation system. |
 | `Theme.swift` | App accent color. |
 
